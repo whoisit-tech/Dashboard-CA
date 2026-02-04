@@ -637,12 +637,6 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     fig.add_hline(y=80, line_dash="dash", line_color="#4caf50", line_width=2, 
                   annotation_text="Target: 80%", annotation_position="right")
     
-    # Target lines
-    fig.add_hline(y=35, line_dash="dash", line_color="#0066b3", line_width=2, 
-                  annotation_text="Target: 35 jam", annotation_position="right", yaxis='y1')
-    fig.add_hline(y=80, line_dash="dash", line_color="#4caf50", line_width=2, 
-                  annotation_text="Target: 80%", annotation_position="right", yaxis='y3')
-    
     # Update layout dengan 3 Y-axis
     fig.update_layout(
         title="Dashboard Analisis Bulanan: Waktu Proses, Jumlah Aplikasi, dan Approval Rate",
