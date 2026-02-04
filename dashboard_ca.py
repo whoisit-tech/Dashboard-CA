@@ -13,7 +13,7 @@ st.set_page_config(
     page_icon="🏦"
 )
 
-FILE_NAME = "Data_CA.xlsx"
+FILE_NAME = "Data CA.xlsx"
 
 # BCA Finance Brand Colors
 BCA_BLUE = "#003d7a"
