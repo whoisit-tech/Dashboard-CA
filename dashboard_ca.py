@@ -632,19 +632,10 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     ))
     
     # Line 3: Approval Rate (Y3 - kanan bawah)
-    fig.add_trace(go.Scatter(
-        x=monthly_data['Bulan'],
-        y=monthly_data['Approval_Rate'],
-        mode='lines+markers+text',
-        name='Approval Rate (%)',
-        text=[f"{val:.1f}%" for val in monthly_data['Approval_Rate']],
-        textposition='top center',
-        textfont=dict(size=9, color='#000000', family='monospace'),
-        line=dict(color='#4caf50', width=3),
-        marker=dict(size=8, color='#4caf50', line=dict(color='white', width=1)),
-        hovertemplate='<b>%{x}</b><br>Approval: %{text}<extra></extra>',
-        yaxis='y3'
-    ))
+    fig.add_hline(y=35, line_dash="dash", line_color="#0066b3", line_width=2, 
+                  annotation_text="Target: 35 jam", annotation_position="right")
+    fig.add_hline(y=80, line_dash="dash", line_color="#4caf50", line_width=2, 
+                  annotation_text="Target: 80%", annotation_position="right")
     
     # Target lines
     fig.add_hline(y=35, line_dash="dash", line_color="#0066b3", line_width=2, 
