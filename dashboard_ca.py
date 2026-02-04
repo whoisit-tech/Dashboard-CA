@@ -2138,7 +2138,7 @@ def main():
         df_distinct = df_filtered.drop_duplicates('apps_id')
         
         # 1. SLA Performance Analysis
-        st.markdown("### 1. Analisis Performa Waktu Proses (SLA)")
+        st.markdown("### Analisis Performa
         
         sla_data = df_filtered[df_filtered['SLA_Hours'].notna()]
         if len(sla_data) > 0:
@@ -2159,39 +2159,6 @@ def main():
                 <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
                 </div>
                 """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"""
-                <div class="metric-box-warning" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Melebihi Target</h4>
-                <h3 style="color: #d4af37; margin: 0;">{sla_pct_above:.1f}%</h3>
-                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{sla_above_target:,} dari {len(sla_data):,} aplikasi</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                if avg_sla > target_sla:
-                    improvement = avg_sla - target_sla
-                    st.markdown(f"""
-                    <div class="metric-box" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Potensi Peningkatan</h4>
-                    <h3 style="color: #0066b3; margin: 0;">{improvement:.1f} jam</h3>
-                    <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Performa Optimal</h4>
-                    <h3 style="color: #1e88e5; margin: 0;">Target Tercapai</h3>
-                    <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # 2. Approval Rate Analysis
-        st.markdown("### 2. Analisis Tingkat Persetujuan")
 
         approve_count = df_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
         total_scored = len(df_distinct)
