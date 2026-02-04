@@ -510,7 +510,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
         return None
 
 def render_sla_trend_chart(sla_valid, df_filtered):
-    """Render chart 3 line tumpuk: Waktu Proses, Jumlah Aplikasi, Approval Rate"""
+    """Render chart 3 subplot: Waktu Proses, Jumlah Aplikasi, Approval Rate"""
     if len(sla_valid) == 0 or 'action_on_parsed' not in sla_valid.columns:
         st.warning("Data untuk chart tidak tersedia")
         return
@@ -579,7 +579,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     st.markdown("#### Tren Bulanan: Waktu Proses vs Jumlah Aplikasi vs Approval Rate")
     
-    # Buat 3 subplot (bukan 1 chart dengan multiple Y-axis)
+    # Buat 3 subplot
     from plotly.subplots import make_subplots
     
     fig = make_subplots(
@@ -659,11 +659,10 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         hovermode='x unified'
     )
     
-    # Update Y-axes
+    # Update Y-axes (GUNAKAN title_font BUKAN titlefont)
     fig.update_yaxes(
         title_text='Waktu Proses (Jam)',
-        titlefont=dict(color='#0066b3'),
-        tickfont=dict(color='#0066b3'),
+        title_font=dict(color='#0066b3'),
         showgrid=True,
         gridcolor='#e0e0e0',
         row=1, col=1
@@ -671,8 +670,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     fig.update_yaxes(
         title_text='Jumlah Aplikasi',
-        titlefont=dict(color='#f44336'),
-        tickfont=dict(color='#f44336'),
+        title_font=dict(color='#f44336'),
         showgrid=True,
         gridcolor='#e0e0e0',
         row=2, col=1
@@ -680,8 +678,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     fig.update_yaxes(
         title_text='Approval Rate (%)',
-        titlefont=dict(color='#4caf50'),
-        tickfont=dict(color='#4caf50'),
+        title_font=dict(color='#4caf50'),
         showgrid=True,
         gridcolor='#e0e0e0',
         range=[0, 110],
