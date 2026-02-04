@@ -2009,16 +2009,13 @@ def main():
         st.markdown("---")
         
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("### Keterlambatan Terakhir (Last OD)")
-            
+    
             if 'LastOD_clean' in df_distinct.columns:
                 df_distinct_copy = df_distinct.copy()
-                df['LastOD_str'] = df['LastOD'].astype(str).str.strip()
-                df['LastOD_str'] = df['LastOD_str'].replace(['-', ''], np.nan)
-                df['LastOD_clean'] = pd.to_numeric(df['LastOD_str'], errors='coerce')
-                
+        
                 def categorize_lastod(value):
                     if pd.isna(value):
                         return 'Data Kosong'  
@@ -2031,8 +2028,8 @@ def main():
                     else:
                         return 'Lebih dari 30 Hari'
 
-                df['LastOD_Category'] = df['LastOD_clean'].apply(categorize_lastod)
-                
+                df_distinct_copy['LastOD_Category'] = df_distinct_copy['LastOD_clean'].apply(categorize_lastod)
+        
                 lastod_analysis = []
 
                 for cat in ['Tidak Ada', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']:
@@ -2077,13 +2074,10 @@ def main():
         
         with col2:
             st.markdown("### Keterlambatan Maksimum (Max OD)")
-            
+    
             if 'max_OD_clean' in df_distinct.columns:
                 df_distinct_copy2 = df_distinct.copy()
-
-                df['max_OD_str'] = df['max_OD'].astype(str).str.strip()
-                df['max_OD_str'] = df['max_OD_str'].replace(['-', ''], np.nan)
-                df['max_OD_clean'] = pd.to_numeric(df['max_OD_str'], errors='coerce')
+        
                 def categorize_maxod(value):
                     if pd.isna(value):
                         return 'Data Kosong'  
@@ -2096,12 +2090,12 @@ def main():
                     else:
                         return 'Lebih dari 45 Hari'
 
-                df['max_OD_Category'] = df['max_OD_clean'].apply(categorize_maxod)
-                
-                maxod_analysis = []  # <-- CREATE NEW LIST, JANGAN REUSE lastod_analysis!
-
+                df_distinct_copy2['max_OD_Category'] = df_distinct_copy2['max_OD_clean'].apply(categorize_maxod)
+        
+                maxod_analysis = []
+    
                 for cat in ['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']:
-                    df_od = df_distinct_copy2[df_distinct_copy2['maxOD_Category'] == cat]  # <-- GUNAKAN maxOD_Category!
+                    df_od = df_distinct_copy2[df_distinct_copy2['max_OD_Category'] == cat]  # Fix typo: maxOD -> max_OD
                     
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
