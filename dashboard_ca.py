@@ -662,24 +662,20 @@ def render_sla_trend_chart(sla_valid, df_filtered):
             title='Jumlah Aplikasi',
             titlefont=dict(color='#f44336'),
             tickfont=dict(color='#f44336'),
-            anchor='free',
             overlaying='y',
-            side='left',
-            position=0.1,
+            side='right',
             showgrid=False
         ),
-        
-        # Y-axis 3 (kanan): Approval Rate
+    
         yaxis3=dict(
             title='Approval Rate (%)',
             titlefont=dict(color='#4caf50'),
             tickfont=dict(color='#4caf50'),
-            anchor='x',
             overlaying='y',
             side='right',
             showgrid=False,
             range=[0, 110]
-        ),
+    ),
         
         showlegend=True,
         legend=dict(
