@@ -541,8 +541,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     df_approved['is_approved'] = df_approved['apps_status_clean'].isin([
         'RECOMMENDED CA', 
-        'RECOMMENDED CA WITH COND',
-        'RECOMMENDED CA WITH CONDITION'
+        'RECOMMENDED CA WITH COND'
     ]).astype(int)
     
     monthly_approval = df_approved.groupby('YearMonth').agg({
