@@ -2015,11 +2015,23 @@ def main():
             
             if 'LastOD_clean' in df_distinct.columns:
                 df_distinct_copy = df_distinct.copy()
-                df_distinct_copy['LastOD_Category'] = pd.cut(
-                    df_distinct_copy['LastOD_clean'],
-                    bins=[-np.inf, 0, 10, 30, np.inf],
-                    labels=['Tidak Ada', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']
-                )
+                df['LastOD_str'] = df['LastOD'].astype(str).str.strip()
+                df['LastOD_str'] = df['LastOD_str'].replace(['-', ''], np.nan)
+                df['LastOD_clean'] = pd.to_numeric(df['LastOD_str'], errors='coerce')
+                
+                def categorize_lastod(value):
+                    if pd.isna(value):
+                        return 'Data Kosong'  
+                    elif value == 0:
+                        return 'Tidak Ada'     
+                    elif value <= 10:
+                        return '1-10 Hari'
+                    elif value <= 30:
+                        return '11-30 Hari'
+                    else:
+                        return 'Lebih dari 30 Hari'
+
+                df['LastOD_Category'] = df['LastOD_clean'].apply(categorize_lastod)
                 
                 lastod_analysis = []
 
@@ -2068,11 +2080,23 @@ def main():
             
             if 'max_OD_clean' in df_distinct.columns:
                 df_distinct_copy2 = df_distinct.copy()
-                df_distinct_copy2['maxOD_Category'] = pd.cut(
-                    df_distinct_copy2['max_OD_clean'],
-                    bins=[-np.inf, 0, 15, 45, np.inf],
-                    labels=['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']
-                )
+
+                df['max_OD_str'] = df['max_OD'].astype(str).str.strip()
+                df['max_OD_str'] = df['max_OD_str'].replace(['-', ''], np.nan)
+                df['max_OD_clean'] = pd.to_numeric(df['max_OD_str'], errors='coerce')
+                def categorize_maxod(value):
+                    if pd.isna(value):
+                        return 'Data Kosong'  
+                    elif value == 0:
+                        return 'Tidak Ada'    
+                    elif value <= 15:
+                        return '1-15 Hari'
+                    elif value <= 45:
+                        return '16-45 Hari'
+                    else:
+                        return 'Lebih dari 45 Hari'
+
+                df['max_OD_Category'] = df['max_OD_clean'].apply(categorize_maxod)
                 
                 maxod_analysis = []  # <-- CREATE NEW LIST, JANGAN REUSE lastod_analysis!
 
