@@ -606,9 +606,6 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         row=1, col=1
     )
     
-    fig.add_hline(y=35, line_dash="dash", line_color="#f44336", line_width=2,
-                  annotation_text="Target: 35 jam", annotation_position="right", row=1, col=1)
-    
     # Row 2: Jumlah Aplikasi
     fig.add_trace(
         go.Scatter(
@@ -645,8 +642,6 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         row=3, col=1
     )
     
-    fig.add_hline(y=80, line_dash="dash", line_color="#ff9800", line_width=2,
-                  annotation_text="Target: 80%", annotation_position="right", row=3, col=1)
     
     # Update layout
     fig.update_layout(
@@ -849,8 +844,7 @@ def remove_duplicate_status(df):
     # Step 2: Define target status untuk deduplication
     status_to_deduplicate = [
         'RECOMMENDED CA',
-        'RECOMMENDED CA WITH COND',
-        'RECOMMENDED CA WITH CONDITION'
+        'RECOMMENDED CA WITH COND'
     ]
     
     # Step 3: Mark duplikasi dan target status
