@@ -1876,7 +1876,6 @@ def main():
                     
                     ca_perf.append({
                         'Nama Credit Analyst': ca,
-                        'Cabang': main_branch,
                         'Total AppID': total_apps,
                         'Total Catatan': total_records,
                         'Disetujui': approve,
