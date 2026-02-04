@@ -13,7 +13,7 @@ st.set_page_config(
     page_icon="🏦"
 )
 
-FILE_NAME = "Historical_CA (1) (1) (1).xlsx"
+FILE_NAME = "Data_CA.xlsx"
 
 # BCA Finance Brand Colors
 BCA_BLUE = "#003d7a"
@@ -531,11 +531,25 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # HITUNG APPROVAL RATE & JUMLAH APLIKASI PER BULAN
     # ============================================================
     df_filtered_copy = df_filtered.copy()
-    df_filtered_copy['action_on_parsed'] = pd.to_datetime(df_filtered_copy['action_on'], errors='coerce')
+    
+    # Pastikan kolom action_on_parsed ada
+    if 'action_on_parsed' not in df_filtered_copy.columns:
+        df_filtered_copy['action_on_parsed'] = pd.to_datetime(df_filtered_copy['action_on'], errors='coerce')
+    
     df_filtered_copy['YearMonth'] = df_filtered_copy['action_on_parsed'].dt.to_period('M').astype(str)
-
+    
+    # Unique apps per month
+    monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
+    monthly_apps = monthly_apps.rename(columns={'YearMonth': 'Bulan'})
+    
     # Approval rate per month - BERDASARKAN STATUS RECOMMENDED CA
     df_approved = df_filtered_copy.drop_duplicates('apps_id')
+    
+    # Pastikan kolom apps_status_clean ada
+    if 'apps_status_clean' not in df_approved.columns:
+        st.error("Kolom 'apps_status_clean' tidak ditemukan. Pastikan preprocessing berjalan dengan benar.")
+        return
+    
     df_approved['is_approved'] = df_approved['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).astype(int)
     
     monthly_approval = df_approved.groupby('YearMonth').agg({
@@ -546,10 +560,22 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     monthly_approval['Approval_Rate'] = (monthly_approval['Approved_Count'] / monthly_approval['Total_Count'] * 100).round(1)
     monthly_approval = monthly_approval.sort_values('Bulan')
     
-    # Merge semua data
-    monthly_data = monthly_avg.merge(monthly_apps, on='Bulan', how='left')
-    monthly_data = monthly_data.merge(monthly_approval[['Bulan', 'Approval_Rate']], on='Bulan', how='left')
-
+    # Merge semua data dengan error handling
+    try:
+        monthly_data = monthly_avg.merge(monthly_apps, on='Bulan', how='left')
+        monthly_data = monthly_data.merge(monthly_approval[['Bulan', 'Approval_Rate']], on='Bulan', how='left')
+        
+        # Fill NaN values
+        monthly_data['Jumlah_Aplikasi'] = monthly_data['Jumlah_Aplikasi'].fillna(0).astype(int)
+        monthly_data['Approval_Rate'] = monthly_data['Approval_Rate'].fillna(0)
+        
+    except Exception as e:
+        st.error(f"Error saat merge data: {str(e)}")
+        st.write("Debug info:")
+        st.write(f"monthly_avg shape: {monthly_avg.shape}")
+        st.write(f"monthly_apps shape: {monthly_apps.shape}")
+        st.write(f"monthly_approval shape: {monthly_approval.shape}")
+        return
     
     # ============================================================
     # TAMPILKAN TABEL
@@ -604,15 +630,91 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         yaxis_title="Waktu Proses (Jam Kerja)",
         hovermode='x unified',
         height=400,
-        plot_bgcolor='#1e2129',
-        paper_bgcolor='#1e2129',
-        font=dict(family='Arial', size=12, color='#e0e0e0'),
+        plot_bgcolor='#FFFFFF',
+        paper_bgcolor='#FFFFFF',
+        font=dict(family='Arial', size=12, color='#1e2129'),
         xaxis=dict(showgrid=True, gridcolor='#2d3139'),
         yaxis=dict(showgrid=True, gridcolor='#2d3139'),
         showlegend=True
     )
     
     st.plotly_chart(fig1, use_container_width=True, key='chart_waktu_proses')
+    
+    # ============================================================
+    # CHART 2: JUMLAH APLIKASI PER BULAN
+    # ============================================================
+    st.markdown("#### Jumlah AppID per Bulan")
+    
+    fig2 = go.Figure()
+    
+    fig2.add_trace(go.Bar(
+        x=monthly_data['Bulan'],
+        y=monthly_data['Jumlah_Aplikasi'],
+        name='Jumlah Aplikasi',
+        marker=dict(color='#1e88e5'),
+        text=monthly_data['Jumlah_Aplikasi'],
+        textposition='outside',
+        hovertemplate='<b>%{x}</b><br>Jumlah: %{y}<extra></extra>'
+    ))
+    
+    fig2.update_layout(
+        title="Jumlah AppID per Bulan",
+        xaxis_title="Bulan",
+        yaxis_title="Jumlah Aplikasi",
+        hovermode='x unified',
+        height=400,
+        plot_bgcolor='#FFFFFF',
+        paper_bgcolor='#FFFFFF',
+        font=dict(family='Arial', size=12, color='#1e2129'),
+        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
+        yaxis=dict(showgrid=True, gridcolor='#2d3139'),
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig2, use_container_width=True, key='chart_jumlah_aplikasi')
+    
+    # ============================================================
+    # CHART 3: APPROVAL RATE PER BULAN (BERDASARKAN STATUS)
+    # ============================================================
+    st.markdown("#### Tingkat Persetujuan (Approval Rate) per Bulan")
+    st.caption("*Approval Rate dihitung berdasarkan status RECOMMENDED CA dan RECOMMENDED CA WITH COND*")
+    
+    fig3 = go.Figure()
+    
+    fig3.add_trace(go.Scatter(
+        x=monthly_data['Bulan'],
+        y=monthly_data['Approval_Rate'],
+        mode='lines+markers+text',
+        name='Approval Rate (%)',
+        text=[f"{val:.1f}%" for val in monthly_data['Approval_Rate']],
+        textposition='top center',
+        textfont=dict(size=10, color='#ffffff', family='monospace'),
+        line=dict(color='#4caf50', width=3),
+        marker=dict(size=10, color='#4caf50', line=dict(color='white', width=2)),
+        fill='tozeroy',
+        fillcolor='rgba(76, 175, 80, 0.2)',
+        hovertemplate='<b>%{x}</b><br>Approval: %{text}<extra></extra>'
+    ))
+    
+    fig3.update_layout(
+        title="Tingkat Persetujuan (Approval Rate) per Bulan - Berdasarkan Status",
+        xaxis_title="Bulan",
+        yaxis_title="Approval Rate (%)",
+        hovermode='x unified',
+        height=400,
+        plot_bgcolor='#FFFFFF',
+        paper_bgcolor='#FFFFFF',
+        font=dict(family='Arial', size=12, color='#1e2129'),
+        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#2d3139',
+            range=[0, 110]
+        ),
+        showlegend=True
+    )
+    
+    st.plotly_chart(fig3, use_container_width=True, key='chart_approval_rate')
     
     # ============================================================
     # CHART 2: JUMLAH APLIKASI PER BULAN
@@ -1807,7 +1909,7 @@ def main():
             
             if 'branch_name_clean' in df_filtered.columns:
                 branch_perf = []
-                
+
                 for branch in sorted(df_filtered['branch_name_clean'].unique()):
                     if branch == 'Tidak Diketahui':
                         continue
@@ -1817,7 +1919,7 @@ def main():
                     
                     total_apps = len(df_branch_distinct)
                     total_records = len(df_branch)
-
+                    
                     approve = df_branch_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
                     total_scored = len(df_branch_distinct)
                     approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
@@ -1836,6 +1938,7 @@ def main():
                         'Waktu Proses Rata-rata': avg_sla,
                         'Total Plafon': f"Rp {total_osph:,.0f}"
                     })
+                
                 
                 branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
                 
@@ -1858,7 +1961,7 @@ def main():
             
             if 'user_name_clean' in df_filtered.columns:
                 ca_perf = []
-                
+
                 for ca in sorted(df_filtered['user_name_clean'].unique()):
                     if ca == 'Tidak Diketahui':
                         continue
@@ -1868,9 +1971,9 @@ def main():
                     
                     total_apps = len(df_ca_distinct)
                     total_records = len(df_ca)
-
-                    approve = df_branch_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-                    total_scored = len(df_branch_distinct)
+                    
+                    approve = df_ca_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
+                    total_scored = len(df_ca_distinct)
                     approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
                     
                     ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
@@ -1888,6 +1991,7 @@ def main():
                         'Tingkat Persetujuan': approval_pct,
                         'Waktu Proses Rata-rata': avg_sla
                     })
+                
                 
                 ca_df = pd.DataFrame(ca_perf).sort_values('Total AppID', ascending=False)
                 
@@ -2026,7 +2130,7 @@ def main():
                 )
                 
                 lastod_analysis = []
-                
+
                 for cat in ['Tidak Ada', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']:
                     df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
                     
@@ -2079,9 +2183,9 @@ def main():
                 )
                 
                 maxod_analysis = []
-                
+
                 for cat in ['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']:
-                    df_od = df_distinct_copy2[df_distinct_copy2['maxOD_Category'] == cat]
+                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
                     
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
@@ -2089,7 +2193,7 @@ def main():
                         
                         approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                         
-                        maxod_analysis.append({
+                        lastod_analysis.append({
                             'Kategori': cat,
                             'Total Aplikasi': len(df_od),
                             'Disetujui': approve,
@@ -2196,6 +2300,7 @@ def main():
         
         if total_scored > 0:
             approval_rate = (approve_count / total_scored) * 100
+            reject_count = total_scored - approve_count
             
             col1, col2, col3 = st.columns(3)
             
