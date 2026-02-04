@@ -510,7 +510,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
         return None
 
 def render_sla_trend_chart(sla_valid, df_filtered):
-    """Render SLA chart dengan approval rate dan jumlah aplikasi per bulan"""
+    """Render chart 3 line tumpuk: Waktu Proses, Jumlah Aplikasi, Approval Rate"""
     if len(sla_valid) == 0 or 'action_on_parsed' not in sla_valid.columns:
         st.warning("Data untuk chart tidak tersedia")
         return
@@ -532,7 +532,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     df_filtered_copy = df_filtered.copy()
     
-    # Pastikan kolom action_on_parsed ada
+    # Ensure action_on_parsed exists
     if 'action_on_parsed' not in df_filtered_copy.columns:
         df_filtered_copy['action_on_parsed'] = pd.to_datetime(df_filtered_copy['action_on'], errors='coerce')
     
@@ -542,15 +542,19 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
     monthly_apps = monthly_apps.rename(columns={'YearMonth': 'Bulan'})
     
-    # Approval rate per month - BERDASARKAN STATUS RECOMMENDED CA
+    # Approval rate per month - BERDASARKAN STATUS APLIKASI
     df_approved = df_filtered_copy.drop_duplicates('apps_id')
     
-    # Pastikan kolom apps_status_clean ada
+    # Hitung berdasarkan apps_status_clean (RECOMMENDED CA dan RECOMMENDED CA WITH COND)
     if 'apps_status_clean' not in df_approved.columns:
-        st.error("Kolom 'apps_status_clean' tidak ditemukan. Pastikan preprocessing berjalan dengan benar.")
+        st.error("Kolom 'apps_status_clean' tidak ditemukan")
         return
     
-    df_approved['is_approved'] = df_approved['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).astype(int)
+    df_approved['is_approved'] = df_approved['apps_status_clean'].isin([
+        'RECOMMENDED CA', 
+        'RECOMMENDED CA WITH COND',
+        'RECOMMENDED CA WITH CONDITION'
+    ]).astype(int)
     
     monthly_approval = df_approved.groupby('YearMonth').agg({
         'is_approved': 'sum',
@@ -559,8 +563,9 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     monthly_approval.columns = ['Bulan', 'Approved_Count', 'Total_Count']
     monthly_approval['Approval_Rate'] = (monthly_approval['Approved_Count'] / monthly_approval['Total_Count'] * 100).round(1)
     monthly_approval = monthly_approval.sort_values('Bulan')
+    monthly_approval = monthly_approval.rename(columns={'YearMonth': 'Bulan'})
     
-    # Merge semua data dengan error handling
+    # Merge semua data
     try:
         monthly_data = monthly_avg.merge(monthly_apps, on='Bulan', how='left')
         monthly_data = monthly_data.merge(monthly_approval[['Bulan', 'Approval_Rate']], on='Bulan', how='left')
@@ -571,10 +576,6 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         
     except Exception as e:
         st.error(f"Error saat merge data: {str(e)}")
-        st.write("Debug info:")
-        st.write(f"monthly_avg shape: {monthly_avg.shape}")
-        st.write(f"monthly_apps shape: {monthly_apps.shape}")
-        st.write(f"monthly_approval shape: {monthly_approval.shape}")
         return
     
     # ============================================================
@@ -594,203 +595,121 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     )
     
     # ============================================================
-    # CHART 1: WAKTU PROSES
+    # 1 CHART DENGAN 3 LINE TUMPUK (BUKAN 3 CHART TERPISAH)
     # ============================================================
-    st.markdown("#### Tren Waktu Proses per Bulan")
+    st.markdown("#### Tren Bulanan: Waktu Proses vs Jumlah Aplikasi vs Approval Rate")
     
-    fig1 = go.Figure()
+    fig = go.Figure()
     
-    fig1.add_trace(go.Scatter(
+    # Line 1: Waktu Proses (Y1 - kiri)
+    fig.add_trace(go.Scatter(
         x=monthly_data['Bulan'],
         y=monthly_data['Rata-rata Waktu (Jam)'],
         mode='lines+markers+text',
         name='Waktu Proses (Jam)',
         text=monthly_data['Rata-rata Waktu (Teks)'],
         textposition='top center',
-        textfont=dict(size=10, color='#ffffff', family='monospace'),
+        textfont=dict(size=9, color='#000000', family='monospace'),
         line=dict(color='#0066b3', width=3),
-        marker=dict(size=10, color='#0066b3', line=dict(color='white', width=2)),
-        hovertemplate='<b>%{x}</b><br>Waktu: %{text}<extra></extra>'
+        marker=dict(size=8, color='#0066b3', line=dict(color='white', width=1)),
+        hovertemplate='<b>%{x}</b><br>Waktu: %{text}<extra></extra>',
+        yaxis='y1'
     ))
     
-    fig1.add_hline(
-        y=35,
-        line_dash="dash",
-        line_color="#f44336",
-        line_width=2,
-        annotation_text="Target: 35 jam",
-        annotation_position="right",
-        annotation_font_size=11,
-        annotation_font_color="#f44336"
-    )
-    
-    fig1.update_layout(
-        title="Tren Waktu Proses per Bulan",
-        xaxis_title="Bulan",
-        yaxis_title="Waktu Proses (Jam Kerja)",
-        hovermode='x unified',
-        height=400,
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF',
-        font=dict(family='Arial', size=12, color='#1e2129'),
-        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        yaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig1, use_container_width=True, key='chart_waktu_proses')
-    
-    # ============================================================
-    # CHART 2: JUMLAH APLIKASI PER BULAN
-    # ============================================================
-    st.markdown("#### Jumlah AppID per Bulan")
-    
-    fig2 = go.Figure()
-    
-    fig2.add_trace(go.Bar(
+    # Line 2: Jumlah Aplikasi (Y2 - kanan atas)
+    fig.add_trace(go.Scatter(
         x=monthly_data['Bulan'],
         y=monthly_data['Jumlah_Aplikasi'],
+        mode='lines+markers+text',
         name='Jumlah Aplikasi',
-        marker=dict(color='#1e88e5'),
         text=monthly_data['Jumlah_Aplikasi'],
-        textposition='outside',
-        hovertemplate='<b>%{x}</b><br>Jumlah: %{y}<extra></extra>'
+        textposition='top center',
+        textfont=dict(size=9, color='#000000', family='monospace'),
+        line=dict(color='#f44336', width=3),
+        marker=dict(size=8, color='#f44336', line=dict(color='white', width=1)),
+        hovertemplate='<b>%{x}</b><br>Jumlah: %{y}<extra></extra>',
+        yaxis='y2'
     ))
     
-    fig2.update_layout(
-        title="Jumlah AppID per Bulan",
-        xaxis_title="Bulan",
-        yaxis_title="Jumlah Aplikasi",
-        hovermode='x unified',
-        height=400,
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF',
-        font=dict(family='Arial', size=12, color='#1e2129'),
-        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        yaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        showlegend=False
-    )
-    
-    st.plotly_chart(fig2, use_container_width=True, key='chart_jumlah_aplikasi')
-    
-    # ============================================================
-    # CHART 3: APPROVAL RATE PER BULAN (BERDASARKAN STATUS)
-    # ============================================================
-    st.markdown("#### Tingkat Persetujuan (Approval Rate) per Bulan")
-    st.caption("*Approval Rate dihitung berdasarkan status RECOMMENDED CA dan RECOMMENDED CA WITH COND*")
-    
-    fig3 = go.Figure()
-    
-    fig3.add_trace(go.Scatter(
+    # Line 3: Approval Rate (Y3 - kanan bawah)
+    fig.add_trace(go.Scatter(
         x=monthly_data['Bulan'],
         y=monthly_data['Approval_Rate'],
         mode='lines+markers+text',
         name='Approval Rate (%)',
         text=[f"{val:.1f}%" for val in monthly_data['Approval_Rate']],
         textposition='top center',
-        textfont=dict(size=10, color='#ffffff', family='monospace'),
+        textfont=dict(size=9, color='#000000', family='monospace'),
         line=dict(color='#4caf50', width=3),
-        marker=dict(size=10, color='#4caf50', line=dict(color='white', width=2)),
-        fill='tozeroy',
-        fillcolor='rgba(76, 175, 80, 0.2)',
-        hovertemplate='<b>%{x}</b><br>Approval: %{text}<extra></extra>'
+        marker=dict(size=8, color='#4caf50', line=dict(color='white', width=1)),
+        hovertemplate='<b>%{x}</b><br>Approval: %{text}<extra></extra>',
+        yaxis='y3'
     ))
     
-    fig3.update_layout(
-        title="Tingkat Persetujuan (Approval Rate) per Bulan - Berdasarkan Status",
+    # Target lines
+    fig.add_hline(y=35, line_dash="dash", line_color="#0066b3", line_width=2, 
+                  annotation_text="Target: 35 jam", annotation_position="right", yaxis='y1')
+    fig.add_hline(y=80, line_dash="dash", line_color="#4caf50", line_width=2, 
+                  annotation_text="Target: 80%", annotation_position="right", yaxis='y3')
+    
+    # Update layout dengan 3 Y-axis
+    fig.update_layout(
+        title="Dashboard Analisis Bulanan: Waktu Proses, Jumlah Aplikasi, dan Approval Rate",
         xaxis_title="Bulan",
-        yaxis_title="Approval Rate (%)",
         hovermode='x unified',
-        height=400,
+        height=500,
         plot_bgcolor='#FFFFFF',
         paper_bgcolor='#FFFFFF',
-        font=dict(family='Arial', size=12, color='#1e2129'),
-        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
+        font=dict(family='Arial', size=11, color='#1e2129'),
+        xaxis=dict(showgrid=True, gridcolor='#e0e0e0'),
+        
+        # Y-axis 1 (kiri): Waktu Proses
         yaxis=dict(
+            title='Waktu Proses (Jam)',
+            titlefont=dict(color='#0066b3'),
+            tickfont=dict(color='#0066b3'),
             showgrid=True,
-            gridcolor='#2d3139',
+            gridcolor='#e0e0e0'
+        ),
+        
+        # Y-axis 2 (tengah): Jumlah Aplikasi
+        yaxis2=dict(
+            title='Jumlah Aplikasi',
+            titlefont=dict(color='#f44336'),
+            tickfont=dict(color='#f44336'),
+            anchor='free',
+            overlaying='y',
+            side='left',
+            position=0.1,
+            showgrid=False
+        ),
+        
+        # Y-axis 3 (kanan): Approval Rate
+        yaxis3=dict(
+            title='Approval Rate (%)',
+            titlefont=dict(color='#4caf50'),
+            tickfont=dict(color='#4caf50'),
+            anchor='x',
+            overlaying='y',
+            side='right',
+            showgrid=False,
             range=[0, 110]
         ),
-        showlegend=True
+        
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor='#e0e0e0',
+            borderwidth=1
+        )
     )
     
-    st.plotly_chart(fig3, use_container_width=True, key='chart_approval_rate')
-    
-    # ============================================================
-    # CHART 2: JUMLAH APLIKASI PER BULAN
-    # ============================================================
-    st.markdown("#### Jumlah AppID per Bulan")
-    
-    fig2 = go.Figure()
-    
-    fig2.add_trace(go.Bar(
-        x=monthly_data['Bulan'],
-        y=monthly_data['Jumlah_Aplikasi'],
-        name='Jumlah Aplikasi',
-        marker=dict(color='#1e88e5'),
-        text=monthly_data['Jumlah_Aplikasi'],
-        textposition='outside',
-        hovertemplate='<b>%{x}</b><br>Jumlah: %{y}<extra></extra>'
-    ))
-    
-    fig2.update_layout(
-        title="Jumlah AppID per Bulan",
-        xaxis_title="Bulan",
-        yaxis_title="Jumlah Aplikasi",
-        hovermode='x unified',
-        height=400,
-        plot_bgcolor='#1e2129',
-        paper_bgcolor='#1e2129',
-        font=dict(family='Arial', size=12, color='#e0e0e0'),
-        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        yaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        showlegend=False
-    )
-    
-    st.plotly_chart(fig2, use_container_width=True, key='chart_jumlah_aplikasi')
-    
-    # ============================================================
-    # CHART 3: APPROVAL RATE PER BULAN
-    # ============================================================
-    st.markdown("#### Tingkat Persetujuan (Approval Rate) per Bulan")
-    
-    fig3 = go.Figure()
-    
-    fig3.add_trace(go.Scatter(
-        x=monthly_data['Bulan'],
-        y=monthly_data['Approval_Rate'],
-        mode='lines+markers+text',
-        name='Approval Rate (%)',
-        text=[f"{val:.1f}%" for val in monthly_data['Approval_Rate']],
-        textposition='top center',
-        textfont=dict(size=10, color='#ffffff', family='monospace'),
-        line=dict(color='#4caf50', width=3),
-        marker=dict(size=10, color='#4caf50', line=dict(color='white', width=2)),
-        fill='tozeroy',
-        fillcolor='rgba(76, 175, 80, 0.2)',
-        hovertemplate='<b>%{x}</b><br>Approval: %{text}<extra></extra>'
-    ))
-    
-    
-    fig3.update_layout(
-        title="Tingkat Persetujuan (Approval Rate) per Bulan",
-        xaxis_title="Bulan",
-        yaxis_title="Approval Rate (%)",
-        hovermode='x unified',
-        height=400,
-        plot_bgcolor='#1e2129',
-        paper_bgcolor='#1e2129',
-        font=dict(family='Arial', size=12, color='#e0e0e0'),
-        xaxis=dict(showgrid=True, gridcolor='#2d3139'),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='#2d3139',
-            range=[0, 110]
-        ),
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig3, use_container_width=True, key='chart_approval_rate')
+    st.plotly_chart(fig, use_container_width=True, key='dashboard_bulanan')
 
 def get_osph_category(osph_value):
     """Categorize Outstanding PH"""
