@@ -2080,10 +2080,10 @@ def main():
                     labels=['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']
                 )
                 
-                maxod_analysis = []
+                maxod_analysis = []  # <-- CREATE NEW LIST, JANGAN REUSE lastod_analysis!
 
                 for cat in ['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']:
-                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
+                    df_od = df_distinct_copy2[df_distinct_copy2['maxOD_Category'] == cat]  # <-- GUNAKAN maxOD_Category!
                     
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
@@ -2091,14 +2091,14 @@ def main():
                         
                         approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                         
-                        lastod_analysis.append({
+                        maxod_analysis.append({  # <-- APPEND KE maxod_analysis!
                             'Kategori': cat,
                             'Total Aplikasi': len(df_od),
                             'Disetujui': approve,
                             'Tingkat Persetujuan': approval_pct
                         })
                 
-                maxod_df = pd.DataFrame(maxod_analysis)
+                maxod_df = pd.DataFrame(maxod_analysis)  # <-- CREATE DF DARI maxod_analysis!
                 st.dataframe(maxod_df, use_container_width=True, hide_index=True)
                 
                 if len(maxod_df) > 0:
