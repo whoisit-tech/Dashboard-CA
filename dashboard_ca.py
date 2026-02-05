@@ -1826,39 +1826,14 @@ def main():
                     total_records = len(df_branch)
                     
                     # HITUNG SLA KHUSUS: PENDING CA → PENDING CA COMPLETED
-                    apps_with_both_status = []
+                    # HITUNG SLA dari kolom SLA_Hours yang sudah dihitung di calculate_sla_per_status()
+                   
+                    branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
                     
-                    for apps_id in df_branch['apps_id'].unique():
-                        df_app = df_branch[df_branch['apps_id'] == apps_id].sort_values('action_on_parsed')
-                        
-                        # Cek apakah ada PENDING CA dan PENDING CA COMPLETED
-                        has_pending_ca = (df_app['apps_status_clean'] == 'PENDING CA').any()
-                        has_completed = (df_app['apps_status_clean'] == 'PENDING CA COMPLETED').any()
-                        
-                        if has_pending_ca and has_completed:
-                            # Ambil waktu PENDING CA (pertama kali muncul)
-                            pending_ca_time = df_app[df_app['apps_status_clean'] == 'PENDING CA']['action_on_parsed'].iloc[0]
-                            
-                            # Ambil waktu PENDING CA COMPLETED (pertama kali muncul setelah PENDING CA)
-                            completed_rows = df_app[
-                                (df_app['apps_status_clean'] == 'PENDING CA COMPLETED') & 
-                                (df_app['action_on_parsed'] > pending_ca_time)
-                            ]
-                            
-                            if len(completed_rows) > 0:
-                                completed_time = completed_rows['action_on_parsed'].iloc[0]
-                                
-                                # Hitung SLA
-                                sla_result = calculate_sla_working_hours(pending_ca_time, completed_time)
-                                
-                                if sla_result:
-                                    apps_with_both_status.append(sla_result['total_hours'])
-                    
-                    # Rata-rata SLA PENDING CA → PENDING CA COMPLETED
-                    if len(apps_with_both_status) > 0:
-                        avg_sla_hours = np.mean(apps_with_both_status)
+                    if len(branch_sla) > 0:
+                        avg_sla_hours = branch_sla['SLA_Hours'].mean()
                         avg_sla = convert_hours_to_hm(avg_sla_hours)
-                        sla_count = len(apps_with_both_status)
+                        sla_count = len(branch_sla)
                     else:
                         avg_sla = "-"
                         sla_count = 0
