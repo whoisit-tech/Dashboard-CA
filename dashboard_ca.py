@@ -533,7 +533,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
     monthly_apps = monthly_apps.rename(columns={'YearMonth': 'Bulan'})
     
-    df_approved = df_filtered_copy.drop_duplicates('apps_id')
+    df_approved = df_filtered_copy.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
     
     if 'apps_status_clean' not in df_approved.columns:
         st.error("Kolom 'apps_status_clean' tidak ditemukan")
@@ -1034,14 +1034,13 @@ def main():
     st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** AppID")
     
     # TABS
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         " Waktu Proses",
         " Data Detail",
         " Analisis Pokok Hutang",
         " Kinerja Cabang & CA",
         " Status & Penilaian",
-        " Dampak Keterlambatan",
-        " Insights",
+        " Insight & Dampak Keterlambatan",
         " Unduh Data"
     ])
 
@@ -1923,7 +1922,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        df_distinct = df_filtered.drop_duplicates('apps_id')
+        df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
         
@@ -1984,266 +1983,369 @@ def main():
                 fig.update_xaxes(side="bottom")
                 st.plotly_chart(fig, use_container_width=True)
 
-    ====== TAB 6: OD IMPACT ======
+            ## ====== TAB 6: OD ANALYSIS - APPROVED APPS ONLY ======
     with tab6:
-        st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
+        st.markdown("## Analisis Overdue Days - Fokus Approved Apps")
         
         st.markdown("""
         <div class="info-box">
-        <h4>Penjelasan Overdue Days (OD)</h4>
-        <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
+        <h4>Penjelasan Analisis</h4>
+        <p>Tab ini fokus pada analisis <strong>Overdue Days (OD)</strong> untuk aplikasi yang <strong>DISETUJUI</strong>:</p>
         <ul>
-            <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
-            <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
         </ul>
-        <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
-        <p><strong> Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
+        <p><strong> Total Apps Analyzed:</strong>
+        <p><strong> Metrics:</strong> Last OD (tunggakan terakhir) dan Max OD (tunggakan tertinggi pernah terjadi)</p>
+        <p><strong> Catatan:</strong> Nilai '-' dengan tanggal real = 0 (tidak ada tunggakan)</p>
         </div>
         """, unsafe_allow_html=True)
-            
-        df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
-        total_apps_distinct = len(df_distinct)
-        total_records = len(df_filtered)
-    
-        col1, col2 = st.columns(2)
+        
+        # FILTER: Hanya approved apps
+        df_approved = df_filtered[df_filtered['apps_status_clean'].isin([
+            'RECOMMENDED CA',
+            'RECOMMENDED CA WITH COND'
+        ])].sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
+        
+        # ========== SECTION A: OVERVIEW ==========
+        st.markdown("###  Overview Approved Applications")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
         with col1:
+            total_approved = len(df_approved)
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
-            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Approved</h3>
+            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_approved:,}</h1>
+            <p style="color: #90a4ae; font-size: 14px;">AppID</p>
             </div>
             """, unsafe_allow_html=True)
-            
+        
         with col2:
+            avg_last_od = df_approved['LastOD_clean'].mean()
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Last OD</h3>
+            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{avg_last_od:.1f}</h1>
+            <p style="color: #90a4ae; font-size: 14px;">hari</p>
             </div>
             """, unsafe_allow_html=True)
-            
-        st.markdown("---")
-            
-        col1, col2 = st.columns(2)
-    
-        with col1:
-            st.markdown("### Keterlambatan Terakhir (Last OD)")
-                
-            if 'LastOD_clean' in df_distinct.columns:
-                df_distinct_copy = df_distinct.copy()
-            
-                def categorize_lastod(value):
-                    if pd.isna(value):
-                        return 'Data Kosong (-)'  # Untuk nilai '-' atau NULL
-                    elif value == 0:
-                        return 'Tidak Ada Tunggakan (0)'  # Untuk nilai 0
-                    elif value <= 10:
-                        return '1-10 Hari'
-                    elif value <= 30:
-                        return '11-30 Hari'
-                    else:
-                        return 'Lebih dari 30 Hari'
-    
-                df_distinct_copy['LastOD_Category'] = df_distinct_copy['LastOD_clean'].apply(categorize_lastod)
-            
-                lastod_analysis = []
-    
-                for cat in ['Data Kosong (-)', 'Tidak Ada Tunggakan (0)', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']:
-                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
-                
-                    if len(df_od) > 0:
-                        approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-                        total = len(df_od)
-                            
-                        approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
-                    
-                        lastod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
-                            'Disetujui': approve,
-                            'Tingkat Persetujuan': approval_pct
-                        })
-            
-                lastod_df = pd.DataFrame(lastod_analysis)
-                st.dataframe(lastod_df, use_container_width=True, hide_index=True)
-            
-                if len(lastod_df) > 0:
-                    lastod_df['Approval_Numeric'] = lastod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                    fig = px.bar(
-                        lastod_df,
-                        x='Kategori',
-                        y='Approval_Numeric',
-                        title="Tingkat Persetujuan Berdasarkan Last OD",
-                        color='Approval_Numeric',
-                        color_continuous_scale='RdYlGn',
-                        text='Tingkat Persetujuan'
-                    )
-                    fig.update_traces(textposition='outside', textfont_size=12)
-                    fig.update_layout(
-                        yaxis_title="Tingkat Persetujuan (%)",
-                        height=400,
-                        showlegend=False,
-                        plot_bgcolor='#ffffff',
-                        paper_bgcolor='#ffffff',
-                        xaxis={'tickangle': -45}  # Rotasi label agar tidak bertumpuk
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-            
-        with col2:
-            st.markdown("### Keterlambatan Maksimum (Max OD)")
         
-            if 'max_OD_clean' in df_distinct.columns:
-                df_distinct_copy2 = df_distinct.copy()
-            
-                def categorize_maxod(value):
-                    if pd.isna(value):
-                        return 'Data Kosong (-)'  # Untuk nilai '-' atau NULL
-                    elif value == 0:
-                        return 'Tidak Ada Tunggakan (0)'  # Untuk nilai 0
-                    elif value <= 15:
-                        return '1-15 Hari'
-                    elif value <= 45:
-                        return '16-45 Hari'
-                    else:
-                        return 'Lebih dari 45 Hari'
-    
-                df_distinct_copy2['max_OD_Category'] = df_distinct_copy2['max_OD_clean'].apply(categorize_maxod)
-            
-                maxod_analysis = []
-    
-                for cat in ['Data Kosong (-)', 'Tidak Ada Tunggakan (0)', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']:
-                    df_od = df_distinct_copy2[df_distinct_copy2['max_OD_Category'] == cat]
-                
-                    if len(df_od) > 0:
-                        approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-                        total = len(df_od)
-                    
-                        approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
-                    
-                        maxod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
-                            'Disetujui': approve,
-                            'Tingkat Persetujuan': approval_pct
-                        })
-            
-                maxod_df = pd.DataFrame(maxod_analysis)
-                st.dataframe(maxod_df, use_container_width=True, hide_index=True)
-            
-                if len(maxod_df) > 0:
-                    maxod_df['Approval_Numeric'] = maxod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                    fig = px.bar(
-                        maxod_df,
-                        x='Kategori',
-                        y='Approval_Numeric',
-                        title="Tingkat Persetujuan Berdasarkan Max OD",
-                        color='Approval_Numeric',
-                        color_continuous_scale='RdYlGn',
-                        text='Tingkat Persetujuan'
-                    )
-                    fig.update_traces(textposition='outside', textfont_size=12)
-                    fig.update_layout(
-                        yaxis_title="Tingkat Persetujuan (%)",
-                        height=400,
-                        showlegend=False,
-                        plot_bgcolor='#ffffff',
-                        paper_bgcolor='#ffffff',
-                        xaxis={'tickangle': -45}  # Rotasi label agar tidak bertumpuk
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-    
-    # ====== TAB 7: INSIGHTS ======
-    with tab7:
-        st.markdown("## Insights")
+        with col3:
+            avg_max_od = df_approved['max_OD_clean'].mean()
+            st.markdown(f"""
+            <div class="metric-box" style="text-align: center; padding: 25px;">
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Max OD</h3>
+            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{avg_max_od:.1f}</h1>
+            <p style="color: #90a4ae; font-size: 14px;">hari</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        st.markdown("""
-        <div class="info-box">
-        <h4>Tentang Insights</h4>
-        <p>Bagian ini menyajikan analisis berdasarkan data aktual untuk membantu pengambilan keputusan bisnis.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with col4:
+            # Distribusi OD Range
+            od_ranges = pd.cut(
+                df_approved['max_OD_clean'], 
+                bins=[0, 30, 60, 90, float('inf')],
+                labels=['0-30 hari', '31-60 hari', '61-90 hari', '>90 hari']
+            ).value_counts()
+            
+            dominant_range = od_ranges.idxmax()
+            dominant_count = od_ranges.max()
+            dominant_pct = (dominant_count / total_approved * 100)
+            
+            st.markdown(f"""
+            <div class="metric-box-warning" style="text-align: center; padding: 25px;">
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Range Dominan</h3>
+            <h1 style="color: #ff9800; margin: 10px 0; font-size: 36px;">{dominant_range}</h1>
+            <p style="color: #90a4ae; font-size: 14px;">{dominant_pct:.1f}% apps</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("---")
         
-        df_distinct = df_filtered.drop_duplicates('apps_id')
+        # ========== SECTION B: BREAKDOWN BY STATUS ==========
+        st.markdown("###  Breakdown Berdasarkan Status Approval")
         
-        # 1. SLA Performance Analysis
-        st.markdown("### 1. Analisis Performa Waktu Proses (SLA)")
+        # --- RECOMMENDED CA ---
+        st.markdown("####  RECOMMENDED CA")
+        df_rec_ca = df_approved[df_approved['apps_status_clean'] == 'RECOMMENDED CA']
         
-        sla_data = df_filtered[df_filtered['SLA_Hours'].notna()]
-        if len(sla_data) > 0:
-            avg_sla = sla_data['SLA_Hours'].mean()
-            target_sla = 35
-            sla_above_target = (sla_data['SLA_Hours'] > target_sla).sum()
-            sla_pct_above = (sla_above_target / len(sla_data)) * 100
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                status = "Baik" if avg_sla <= target_sla else "Perlu Perbaikan"
-                color = "metric-box-success" if avg_sla <= target_sla else "metric-box-danger"
-                st.markdown(f"""
-                <div class="{color}" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Status SLA</h4>
-                <h3 style="margin: 0;">{status}</h3>
-                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                if avg_sla > target_sla:
-                    improvement = avg_sla - target_sla
-                    st.markdown(f"""
-                    <div class="metric-box" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Potensi Peningkatan</h4>
-                    <h3 style="color: #0066b3; margin: 0;">{improvement:.1f} jam</h3>
-                    <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Performa Optimal</h4>
-                    <h3 style="color: #1e88e5; margin: 0;">Target Tercapai</h3>
-                    <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # 2. Approval Rate Analysis
-        st.markdown("### 2. Analisis Tingkat Persetujuan")
-
-        approve_count = df_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-        total_scored = len(df_distinct)
-        
-        if total_scored > 0:
-            approval_rate = (approve_count / total_scored) * 100
-            reject_count = total_scored - approve_count
-            
+        if len(df_rec_ca) > 0:
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.markdown(f"""
                 <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Tingkat Persetujuan</h4>
-                <h3 style="color: #1e88e5; margin: 0;">{approval_rate:.1f}%</h3>
-                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{approve_count:,} aplikasi disetujui</p>
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h4>
+                <h3 style="color: #1e88e5; margin: 0;">{len(df_rec_ca):,}</h3>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col2:
+                avg_lastod = df_rec_ca['LastOD_clean'].mean()
                 st.markdown(f"""
-                <div class="metric-box-danger" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Ditolak</h4>
-                <h3 style="color: #f44336; margin: 0;">{100-approval_rate:.1f}%</h3>
-                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
+                <div class="metric-box" style="text-align: center; padding: 20px;">
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Last OD</h4>
+                <h3 style="color: #0066b3; margin: 0;">{avg_lastod:.1f} hari</h3>
                 </div>
                 """, unsafe_allow_html=True)
             
+            with col3:
+                avg_maxod = df_rec_ca['max_OD_clean'].mean()
+                st.markdown(f"""
+                <div class="metric-box" style="text-align: center; padding: 20px;">
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Max OD</h4>
+                <h3 style="color: #0066b3; margin: 0;">{avg_maxod:.1f} hari</h3>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Top 10 Highest OD
+            st.markdown("**🔝 Top 10 AppID dengan OD Tertinggi**")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("*Last OD Tertinggi*")
+                top_lastod = df_rec_ca.nlargest(10, 'LastOD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean', 'OSPH_clean']]
+                top_lastod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)', 'Pokok Hutang (Rp)']
+                top_lastod['Pokok Hutang (Rp)'] = top_lastod['Pokok Hutang (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
+                st.dataframe(top_lastod.reset_index(drop=True), use_container_width=True, height=300)
+            
+            with col2:
+                st.markdown("*Max OD Tertinggi*")
+                top_maxod = df_rec_ca.nlargest(10, 'max_OD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean', 'OSPH_clean']]
+                top_maxod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)', 'Pokok Hutang (Rp)']
+                top_maxod['Pokok Hutang (Rp)'] = top_maxod['Pokok Hutang (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
+                st.dataframe(top_maxod.reset_index(drop=True), use_container_width=True, height=300)
+            
+            # Visualization - OD Distribution
+            st.markdown("** Distribusi Overdue Days**")
+            
+            # Create bins for OD ranges
+            df_rec_ca['OD_Range'] = pd.cut(
+                df_rec_ca['max_OD_clean'],
+                bins=[0, 30, 60, 90, 120, float('inf')],
+                labels=['0-30 hari', '31-60 hari', '61-90 hari', '91-120 hari', '>120 hari']
+            )
+            
+            od_dist = df_rec_ca['OD_Range'].value_counts().sort_index()
+            
+            fig = px.bar(
+                x=od_dist.index,
+                y=od_dist.values,
+                title="Distribusi Max OD - RECOMMENDED CA",
+                labels={'x': 'Range OD', 'y': 'Jumlah AppID'},
+                text=od_dist.values,
+                color=od_dist.values,
+                color_continuous_scale='Blues'
+            )
+            fig.update_traces(textposition='outside', textfont_size=12)
+            fig.update_layout(
+                height=400,
+                plot_bgcolor='#ffffff',
+                paper_bgcolor='#ffffff',
+                font=dict(family='Arial', size=12, color='#1e2129'),
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Tidak ada data untuk RECOMMENDED CA")
+        
+        st.markdown("---")
+        
+        # --- RECOMMENDED CA WITH COND ---
+        st.markdown("#### RECOMMENDED CA WITH COND")
+        df_rec_ca_cond = df_approved[df_approved['apps_status_clean'] == 'RECOMMENDED CA WITH COND']
+        
+        if len(df_rec_ca_cond) > 0:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown(f"""
+                <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h4>
+                <h3 style="color: #ff9800; margin: 0;">{len(df_rec_ca_cond):,}</h3>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                avg_lastod = df_rec_ca_cond['LastOD_clean'].mean()
+                st.markdown(f"""
+                <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Last OD</h4>
+                <h3 style="color: #ff9800; margin: 0;">{avg_lastod:.1f} hari</h3>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                avg_maxod = df_rec_ca_cond['max_OD_clean'].mean()
+                st.markdown(f"""
+                <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Max OD</h4>
+                <h3 style="color: #ff9800; margin: 0;">{avg_maxod:.1f} hari</h3>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Top 10 Highest OD
+            st.markdown("** Top 10 AppID dengan OD Tertinggi**")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("*Last OD Tertinggi*")
+                top_lastod = df_rec_ca_cond.nlargest(10, 'LastOD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean', 'OSPH_clean']]
+                top_lastod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)', 'Pokok Hutang (Rp)']
+                top_lastod['Pokok Hutang (Rp)'] = top_lastod['Pokok Hutang (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
+                st.dataframe(top_lastod.reset_index(drop=True), use_container_width=True, height=300)
+            
+            with col2:
+                st.markdown("*Max OD Tertinggi*")
+                top_maxod = df_rec_ca_cond.nlargest(10, 'max_OD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean', 'OSPH_clean']]
+                top_maxod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)', 'Pokok Hutang (Rp)']
+                top_maxod['Pokok Hutang (Rp)'] = top_maxod['Pokok Hutang (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
+                st.dataframe(top_maxod.reset_index(drop=True), use_container_width=True, height=300)
+            
+            # Visualization - OD Distribution
+            st.markdown("** Distribusi Overdue Days**")
+            
+            df_rec_ca_cond['OD_Range'] = pd.cut(
+                df_rec_ca_cond['max_OD_clean'],
+                bins=[0, 30, 60, 90, 120, float('inf')],
+                labels=['0-30 hari', '31-60 hari', '61-90 hari', '91-120 hari', '>120 hari']
+            )
+            
+            od_dist = df_rec_ca_cond['OD_Range'].value_counts().sort_index()
+            
+            fig = px.bar(
+                x=od_dist.index,
+                y=od_dist.values,
+                title="Distribusi Max OD - RECOMMENDED CA WITH COND",
+                labels={'x': 'Range OD', 'y': 'Jumlah AppID'},
+                text=od_dist.values,
+                color=od_dist.values,
+                color_continuous_scale='Oranges'
+            )
+            fig.update_traces(textposition='outside', textfont_size=12)
+            fig.update_layout(
+                height=400,
+                plot_bgcolor='#ffffff',
+                paper_bgcolor='#ffffff',
+                font=dict(family='Arial', size=12, color='#1e2129'),
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Tidak ada data untuk RECOMMENDED CA WITH COND")
+        
+        st.markdown("---")
+        
+        # ========== SECTION C: INSIGHTS & RECOMMENDATIONS ==========
+        st.markdown("###  Insights & Rekomendasi")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            <div class="info-box">
+            <h4> Profil Risiko Berdasarkan OD</h4>
+            <ul>
+                <li><strong>OD 0-30 hari</strong>: Risiko Rendah - Kinerja pembayaran baik</li>
+                <li><strong>OD 31-60 hari</strong>: Risiko Sedang - Perlu monitoring</li>
+                <li><strong>OD 61-90 hari</strong>: Risiko Tinggi - Perlu tindakan</li>
+                <li><strong>OD >90 hari</strong>: Risiko Sangat Tinggi - Review policy</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            # Calculate risk distribution
+            df_approved['Risk_Level'] = pd.cut(
+                df_approved['max_OD_clean'],
+                bins=[0, 30, 60, 90, float('inf')],
+                labels=['Rendah', 'Sedang', 'Tinggi', 'Sangat Tinggi']
+            )
+            
+            risk_dist = df_approved['Risk_Level'].value_counts()
+            
+            st.markdown("** Distribusi Profil Risiko**")
+            
+            for risk, count in risk_dist.items():
+                pct = (count / len(df_approved) * 100)
+                color = {
+                    'Rendah': 'success',
+                    'Sedang': '',
+                    'Tinggi': 'warning',
+                    'Sangat Tinggi': 'danger'
+                }.get(risk, '')
+                
+                st.markdown(f"""
+                <div class="metric-box-{color}" style="padding: 15px; margin-bottom: 10px;">
+                <h4 style="margin: 0;">{risk}: {count:,} apps ({pct:.1f}%)</h4>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Comparison chart
+        st.markdown("###  Perbandingan OD: RECOMMENDED CA vs RECOMMENDED CA WITH COND")
+        
+        comparison_data = []
+        
+        if len(df_rec_ca) > 0:
+            comparison_data.append({
+                'Status': 'RECOMMENDED CA',
+                'Avg Last OD': df_rec_ca['LastOD_clean'].mean(),
+                'Avg Max OD': df_rec_ca['max_OD_clean'].mean(),
+                'Total Apps': len(df_rec_ca)
+            })
+        
+        if len(df_rec_ca_cond) > 0:
+            comparison_data.append({
+                'Status': 'RECOMMENDED CA WITH COND',
+                'Avg Last OD': df_rec_ca_cond['LastOD_clean'].mean(),
+                'Avg Max OD': df_rec_ca_cond['max_OD_clean'].mean(),
+                'Total Apps': len(df_rec_ca_cond)
+            })
+        
+        if comparison_data:
+            comparison_df = pd.DataFrame(comparison_data)
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                name='Avg Last OD',
+                x=comparison_df['Status'],
+                y=comparison_df['Avg Last OD'],
+                text=comparison_df['Avg Last OD'].round(1),
+                textposition='outside',
+                marker_color='#0066b3'
+            ))
+            
+            fig.add_trace(go.Bar(
+                name='Avg Max OD',
+                x=comparison_df['Status'],
+                y=comparison_df['Avg Max OD'],
+                text=comparison_df['Avg Max OD'].round(1),
+                textposition='outside',
+                marker_color='#ff9800'
+            ))
+            
+            fig.update_layout(
+                title="Perbandingan Average Overdue Days",
+                xaxis_title="Status Approval",
+                yaxis_title="Overdue Days (Hari)",
+                barmode='group',
+                height=450,
+                plot_bgcolor='#ffffff',
+                paper_bgcolor='#ffffff',
+                font=dict(family='Arial', size=13, color='#1e2129'),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
     
-    # ====== TAB 8: DATA EXPORT ======
-    with tab8:
+    # ====== TAB 7: DATA EXPORT ======
+    with tab7:
         st.markdown("## Unduh Data & Laporan")
         
         st.markdown("""
