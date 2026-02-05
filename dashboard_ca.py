@@ -1984,7 +1984,7 @@ def main():
                 fig.update_xaxes(side="bottom")
                 st.plotly_chart(fig, use_container_width=True)
 
-     ====== TAB 6: OD IMPACT ======
+    ====== TAB 6: OD IMPACT ======
     with tab6:
         st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
         
