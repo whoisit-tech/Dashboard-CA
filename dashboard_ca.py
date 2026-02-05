@@ -2001,12 +2001,16 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
-        total_apps_distinct = len(df_distinct)
-        total_records = len(df_filtered)
+        # FILTER: Hanya approved apps
+        df_approved = df_filtered[df_filtered['apps_status_clean'].isin([
+            'RECOMMENDED CA',
+            'RECOMMENDED CA WITH COND'
+        ])].sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
+        
 
         col1, col2 = st.columns(2)
         with col1:
+            total_approved = len(df_approved)
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
@@ -2015,6 +2019,7 @@ def main():
             """, unsafe_allow_html=True)
         
         with col2:
+            total_approvedn = len(df_approved)
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
