@@ -1793,95 +1793,92 @@ def main():
 
     
     # ====== TAB 4: BRANCH & CA PERFORMANCE ======
+    # ====== TAB 4: BRANCH & CA PERFORMANCE ======
     with tab4:
         st.markdown("## Analisis Kinerja Cabang & Credit Analyst")
         
         subtab1, subtab2 = st.tabs([" Kinerja Cabang", " Kinerja Credit Analyst"])
         
         # Branch Performance
-        # Branch Performance
-with subtab1:
-    st.markdown("""
-    <div class="info-box">
-    <h4>Penjelasan Metrik Kinerja Cabang</h4>
-    <ul>
-        <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
-        <li><strong>Waktu Proses PENDING CA → PENDING CA COMPLETED</strong>: Durasi proses dari PENDING CA hingga PENDING CA COMPLETED dalam jam kerja</li>
-        <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if 'branch_name_clean' in df_filtered.columns:
-        branch_perf = []
+        with subtab1:
+            st.markdown("""
+            <div class="info-box">
+            <h4>Penjelasan Metrik Kinerja Cabang</h4>
+            <ul>
+                <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
+                <li><strong>Waktu Proses PENDING CA → PENDING CA COMPLETED</strong>: Durasi proses dari PENDING CA hingga PENDING CA COMPLETED dalam jam kerja</li>
+                <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if 'branch_name_clean' in df_filtered.columns:
+                branch_perf = []
 
-        for branch in sorted(df_filtered['branch_name_clean'].unique()):
-            if branch == 'Tidak Diketahui':
-                continue
-            
-            df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
-            df_branch_distinct = df_branch.drop_duplicates('apps_id')
-            
-            total_apps = len(df_branch_distinct)
-            total_records = len(df_branch)
-            
-            # HITUNG SLA KHUSUS: PENDING CA → PENDING CA COMPLETED
-            # Filter hanya apps_id yang memiliki kedua status
-            apps_with_both_status = []
-            
-            for apps_id in df_branch['apps_id'].unique():
-                df_app = df_branch[df_branch['apps_id'] == apps_id].sort_values('action_on_parsed')
-                
-                # Cek apakah ada PENDING CA dan PENDING CA COMPLETED
-                has_pending_ca = (df_app['apps_status_clean'] == 'PENDING CA').any()
-                has_completed = (df_app['apps_status_clean'] == 'PENDING CA COMPLETED').any()
-                
-                if has_pending_ca and has_completed:
-                    # Ambil waktu PENDING CA (pertama kali muncul)
-                    pending_ca_time = df_app[df_app['apps_status_clean'] == 'PENDING CA']['action_on_parsed'].iloc[0]
+                for branch in sorted(df_filtered['branch_name_clean'].unique()):
+                    if branch == 'Tidak Diketahui':
+                        continue
                     
-                    # Ambil waktu PENDING CA COMPLETED (pertama kali muncul setelah PENDING CA)
-                    completed_rows = df_app[
-                        (df_app['apps_status_clean'] == 'PENDING CA COMPLETED') & 
-                        (df_app['action_on_parsed'] > pending_ca_time)
-                    ]
+                    df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
+                    df_branch_distinct = df_branch.drop_duplicates('apps_id')
                     
-                    if len(completed_rows) > 0:
-                        completed_time = completed_rows['action_on_parsed'].iloc[0]
+                    total_apps = len(df_branch_distinct)
+                    total_records = len(df_branch)
+                    
+                    # HITUNG SLA KHUSUS: PENDING CA → PENDING CA COMPLETED
+                    apps_with_both_status = []
+                    
+                    for apps_id in df_branch['apps_id'].unique():
+                        df_app = df_branch[df_branch['apps_id'] == apps_id].sort_values('action_on_parsed')
                         
-                        # Hitung SLA
-                        sla_result = calculate_sla_working_hours(pending_ca_time, completed_time)
+                        # Cek apakah ada PENDING CA dan PENDING CA COMPLETED
+                        has_pending_ca = (df_app['apps_status_clean'] == 'PENDING CA').any()
+                        has_completed = (df_app['apps_status_clean'] == 'PENDING CA COMPLETED').any()
                         
-                        if sla_result:
-                            apps_with_both_status.append(sla_result['total_hours'])
-            
-            # Rata-rata SLA PENDING CA → PENDING CA COMPLETED
-            if len(apps_with_both_status) > 0:
-                avg_sla_hours = np.mean(apps_with_both_status)
-                avg_sla = convert_hours_to_hm(avg_sla_hours)
-                sla_count = len(apps_with_both_status)
-            else:
-                avg_sla = "-"
-                sla_count = 0
-            
-            total_osph = df_branch_distinct['OSPH_clean'].sum()
-            
-            branch_perf.append({
-                'Cabang': branch,
-                'Total AppID': total_apps,
-                'Total Catatan': total_records,
-                'Jumlah SLA Dihitung': sla_count,
-                'Waktu Proses (PENDING CA → COMPLETED)': avg_sla,
-                'Total Plafon': f"Rp {total_osph:,.0f}"
-            })
-        
-        
-        branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
-        
-        st.markdown("### Tabel Kinerja Seluruh Cabang")
-        st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
+                        if has_pending_ca and has_completed:
+                            # Ambil waktu PENDING CA (pertama kali muncul)
+                            pending_ca_time = df_app[df_app['apps_status_clean'] == 'PENDING CA']['action_on_parsed'].iloc[0]
+                            
+                            # Ambil waktu PENDING CA COMPLETED (pertama kali muncul setelah PENDING CA)
+                            completed_rows = df_app[
+                                (df_app['apps_status_clean'] == 'PENDING CA COMPLETED') & 
+                                (df_app['action_on_parsed'] > pending_ca_time)
+                            ]
+                            
+                            if len(completed_rows) > 0:
+                                completed_time = completed_rows['action_on_parsed'].iloc[0]
+                                
+                                # Hitung SLA
+                                sla_result = calculate_sla_working_hours(pending_ca_time, completed_time)
+                                
+                                if sla_result:
+                                    apps_with_both_status.append(sla_result['total_hours'])
+                    
+                    # Rata-rata SLA PENDING CA → PENDING CA COMPLETED
+                    if len(apps_with_both_status) > 0:
+                        avg_sla_hours = np.mean(apps_with_both_status)
+                        avg_sla = convert_hours_to_hm(avg_sla_hours)
+                        sla_count = len(apps_with_both_status)
+                    else:
+                        avg_sla = "-"
+                        sla_count = 0
+                    
+                    total_osph = df_branch_distinct['OSPH_clean'].sum()
+                    
+                    branch_perf.append({
+                        'Cabang': branch,
+                        'Total AppID': total_apps,
+                        'Total Catatan': total_records,
+                        'Jumlah SLA Dihitung': sla_count,
+                        'Waktu Proses (PENDING CA → COMPLETED)': avg_sla,
+                        'Total Plafon': f"Rp {total_osph:,.0f}"
+                    })
                 
-        
+                branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
+                
+                st.markdown("### Tabel Kinerja Seluruh Cabang")
+                st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
+                  
         # CA Performance
         with subtab2:
             st.markdown("""
