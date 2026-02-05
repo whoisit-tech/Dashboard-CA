@@ -1034,14 +1034,13 @@ def main():
     st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** AppID")
     
     # TABS
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         " Waktu Proses",
         " Data Detail",
         " Analisis Pokok Hutang",
         " Kinerja Cabang & CA",
         " Status & Penilaian",
-        " Dampak Keterlambatan",
-        " Insights",
+        " Insight & Dampak Keterlambatan",
         " Unduh Data"
     ])
 
@@ -2347,8 +2346,8 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
             
     
-    # ====== TAB 8: DATA EXPORT ======
-    with tab8:
+    # ====== TAB 7: DATA EXPORT ======
+    with tab7:
         st.markdown("## Unduh Data & Laporan")
         
         st.markdown("""
@@ -2418,7 +2417,7 @@ def main():
             
             csv_data = df_filtered[available_cols].to_csv(index=False)
             st.download_button(
-                "📥 Unduh Data Lengkap (CSV)",
+                " Unduh Data Lengkap (CSV)",
                 csv_data,
                 "data_analisis_kredit.csv",
                 "text/csv",
