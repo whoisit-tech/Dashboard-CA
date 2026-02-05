@@ -721,10 +721,23 @@ def preprocess_data(df):
         )
         df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
     
-    # Clean OD
+    # Clean OD - UBAH LOGIC: '-' YANG ADA TGL REAL JADI 0
     for col in ['LastOD', 'max_OD']:
         if col in df.columns:
-            df[f'{col}_clean'] = pd.to_numeric(df[col], errors='coerce')
+            # Cek apakah value adalah '-' atau string non-numeric
+            def clean_od_value(row):
+                od_value = row[col]
+                # Jika ada tanggal real dan nilai OD adalah '-', ubah jadi 0
+                if pd.notna(row.get('action_on_parsed')) and (od_value == '-' or pd.isna(od_value) or str(od_value).strip() == ''):
+                    return 0
+                # Jika tidak ada tanggal real dan nilai '-', tetap NaN
+                elif pd.isna(row.get('action_on_parsed')) and (od_value == '-' or str(od_value).strip() == ''):
+                    return np.nan
+                # Convert numeric
+                else:
+                    return pd.to_numeric(od_value, errors='coerce')
+            
+            df[f'{col}_clean'] = df.apply(clean_od_value, axis=1)
     
     # Clean Scoring
     if 'Hasil_Scoring' in df.columns:
