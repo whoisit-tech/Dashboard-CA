@@ -1792,9 +1792,8 @@ def main():
             <h4>Penjelasan Metrik Kinerja Cabang</h4>
             <ul>
                 <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
-                <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang disetujui</li>
-                <li><strong>Waktu Proses Rata-rata</strong>: Durasi proses kredit dalam jam kerja</li>
-                <li><strong>Total Pokok Hutang</strong>: Akumulasi nilai Pokok Hutang kredit</li>
+                <li><strong>Waktu Proses PENDING CA → PENDING CA COMPLETED</strong>: Durasi proses dari PENDING CA hingga PENDING CA COMPLETED dalam jam kerja</li>
+                <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
             </ul>
             </div>
             """, unsafe_allow_html=True)
@@ -1812,12 +1811,18 @@ def main():
                     total_apps = len(df_branch_distinct)
                     total_records = len(df_branch)
                     
-                    approve = df_branch_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-                    total_scored = len(df_branch_distinct)
-                    approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
-                    
+                    # HITUNG SLA KHUSUS: PENDING CA → PENDING CA COMPLETED
+                    # HITUNG SLA dari kolom SLA_Hours yang sudah dihitung di calculate_sla_per_status()
+                   
                     branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
-                    avg_sla = convert_hours_to_hm(branch_sla['SLA_Hours'].mean()) if len(branch_sla) > 0 else "-"
+                    
+                    if len(branch_sla) > 0:
+                        avg_sla_hours = branch_sla['SLA_Hours'].mean()
+                        avg_sla = convert_hours_to_hm(avg_sla_hours)
+                        sla_count = len(branch_sla)
+                    else:
+                        avg_sla = "-"
+                        sla_count = 0
                     
                     total_osph = df_branch_distinct['OSPH_clean'].sum()
                     
@@ -1825,12 +1830,10 @@ def main():
                         'Cabang': branch,
                         'Total AppID': total_apps,
                         'Total Catatan': total_records,
-                        'Disetujui': approve,
-                        'Tingkat Persetujuan': approval_pct,
-                        'Waktu Proses Rata-rata': avg_sla,
-                        'Total Pokok Hutang': f"Rp {total_osph:,.0f}"
+                        'Jumlah SLA Dihitung': sla_count,
+                        'Waktu Proses (PENDING CA → COMPLETED)': avg_sla,
+                        'Total Plafon': f"Rp {total_osph:,.0f}"
                     })
-                
                 
                 branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
                 
