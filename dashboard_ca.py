@@ -1040,7 +1040,6 @@ def main():
         " Analisis Pokok Hutang",
         " Kinerja Cabang & CA",
         " Status & Penilaian",
-        " Dampak Keterlambatan",
         " Insights",
         " Unduh Data"
     ])
