@@ -1024,7 +1024,7 @@ def main():
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         " Waktu Proses",
         " Data Detail",
-        " Analisis Plafon",
+        " Analisis Pokok Hutang",
         " Kinerja Cabang & CA",
         " Status & Penilaian",
         " Dampak Keterlambatan",
@@ -1166,7 +1166,7 @@ def main():
                 'Status Terakhir': latest_record.get('apps_status_clean', 'N/A'),
                 'Aksi Terakhir': latest_record.get('action_on_parsed', pd.NaT),
                 'Segmen': latest_record.get('Segmen_clean', 'N/A'),
-                'Kategori Plafon': latest_record.get('OSPH_Category', 'N/A'),
+                'Kategori Pokok Hutang': latest_record.get('OSPH_Category', 'N/A'),
                 'Cabang': latest_record.get('branch_name_clean', 'N/A'),
                 'Credit Analyst': latest_record.get('user_name_clean', 'N/A')  # CA TERAKHIR dari history
             })
@@ -1244,7 +1244,7 @@ def main():
                         osph = app_records['OSPH_Category'].iloc[0] if 'OSPH_Category' in app_records.columns else 'N/A'
                         st.markdown(f"""
                         <div class="metric-box-warning" style="text-align: center; padding: 20px;">
-                        <h4 style="color: #003d7a; margin-bottom: 10px;">Plafon</h4>
+                        <h4 style="color: #003d7a; margin-bottom: 10px;">Pokok Hutang</h4>
                         <h3 style="color: #d4af37; margin: 0;">{osph}</h3>
                         </div>
                         """, unsafe_allow_html=True)
@@ -1286,7 +1286,7 @@ def main():
                         'SLA_Hours': 'SLA (Jam)',
                         'SLA_Formatted': 'SLA',
                         'Scoring_Detail': 'Hasil Penilaian',
-                        'OSPH_clean': 'Plafon (Rp)',
+                        'OSPH_clean': 'Pokok Hutang (Rp)',
                         'LastOD_clean': 'Tunggakan Terakhir (Hari)',
                         'user_name_clean': 'Credit Analyst',
                         'Pekerjaan_clean': 'Pekerjaan',
@@ -1306,15 +1306,15 @@ def main():
     
     # ====== TAB 3: OSPH ANALYSIS ======
     with tab3:
-        st.markdown("## Analisis Plafon Kredit (OSPH)")
+        st.markdown("## Analisis Pokok Hutang (OSPH)")
         
         st.markdown("""
         <div class="info-box">
         <h4>Penjelasan Analisis</h4>
-        <p><strong>OSPH (Outstanding Plafon Hutang)</strong> adalah total plafon kredit yang tersedia untuk nasabah.</p>
+        <p><strong>OSPH (Outstanding Pokok Hutang)</strong> adalah total pokok kredit yang tersedia untuk nasabah.</p>
         <p>Analisis ini mengelompokkan aplikasi berdasarkan:</p>
         <ul>
-            <li><strong>Kategori Plafon</strong>: 0-250 Juta, 250-500 Juta, dan >500 Juta</li>
+            <li><strong>Kategori Pokok Hutang</strong>: 0-250 Juta, 250-500 Juta, dan >500 Juta</li>
             <li><strong>Dimensi Analisis</strong>: Pekerjaan, Status Aplikasi, Jenis Kendaraan, dan Hasil Scoring</li>
         </ul>
         <p><strong>Catatan:</strong> Perhitungan Berdasarkan Total AppID</p>
@@ -1336,7 +1336,7 @@ def main():
         
         # SUBTAB 1: BY PEKERJAAN
         with subtab1:
-            st.markdown("### Analisis Plafon Berdasarkan Pekerjaan")
+            st.markdown("### Analisis Pokok Hutang Berdasarkan Pekerjaan")
             
             # Get top pekerjaan
             top_pekerjaan = df_filtered.drop_duplicates('apps_id')['Pekerjaan_clean'].value_counts().head(10).index.tolist()
@@ -1377,7 +1377,7 @@ def main():
                     for osph_range in osph_order:
                         df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
                         
-                        row = {'Kategori Plafon': osph_range}
+                        row = {'Kategori Pokok Hutang': osph_range}
                         
                         for pekerjaan in top_pekerjaan:
                             count = len(df_osph[df_osph['Pekerjaan_clean'] == pekerjaan])
@@ -1389,7 +1389,7 @@ def main():
                         pivot_data.append(row)
                     
                     # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
+                    total_row = {'Kategori Pokok Hutang': 'TOTAL SEMUA'}
                     for pekerjaan in top_pekerjaan:
                         count = len(df_segmen[df_segmen['Pekerjaan_clean'] == pekerjaan])
                         total_row[pekerjaan] = count if count > 0 else 0
@@ -1401,16 +1401,16 @@ def main():
                     st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
                     
                     # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
+                    pivot_plot = pivot_df[pivot_df['Kategori Pokok Hutang'] != 'TOTAL SEMUA'].copy()
                     
                     if len(pivot_plot) > 0:
                         plot_data = []
                         for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
+                            osph = row['Kategori Pokok Hutang']
                             for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
+                                if col not in ['Kategori Pokok Hutang', 'TOTAL'] and row[col] > 0:
                                     plot_data.append({
-                                        'Kategori Plafon': osph,
+                                        'Kategori Pokok Hutang': osph,
                                         'Pekerjaan': col,
                                         'Jumlah': row[col]
                                     })
@@ -1419,10 +1419,10 @@ def main():
                             plot_df = pd.DataFrame(plot_data)
                             fig = px.bar(
                                 plot_df,
-                                x='Kategori Plafon',
+                                x='Kategori Pokok Hutang',
                                 y='Jumlah',
                                 color='Pekerjaan',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
+                                title=f"Distribusi Pokok Hutang untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Set3,
                                 text='Jumlah'
@@ -1442,7 +1442,7 @@ def main():
         
         # SUBTAB 2: BY STATUS
         with subtab2:
-            st.markdown("### Analisis Plafon Berdasarkan Status Aplikasi")
+            st.markdown("### Analisis Pokok Hutang Berdasarkan Status Aplikasi")
             
             # Get top status
             top_status = df_filtered.drop_duplicates('apps_id')['apps_status_clean'].value_counts().head(10).index.tolist()
@@ -1482,7 +1482,7 @@ def main():
                     for osph_range in osph_order:
                         df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
                         
-                        row = {'Kategori Plafon': osph_range}
+                        row = {'Kategori Pokok Hutang': osph_range}
                         
                         for status in top_status:
                             count = len(df_osph[df_osph['apps_status_clean'] == status])
@@ -1493,7 +1493,7 @@ def main():
                         pivot_data.append(row)
                     
                     # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
+                    total_row = {'Kategori Pokok Hutang': 'TOTAL SEMUA'}
                     for status in top_status:
                         count = len(df_segmen[df_segmen['apps_status_clean'] == status])
                         total_row[status] = count if count > 0 else 0
@@ -1505,16 +1505,16 @@ def main():
                     st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
                     
                     # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
+                    pivot_plot = pivot_df[pivot_df['Kategori Pokok Hutang'] != 'TOTAL SEMUA'].copy()
                     
                     if len(pivot_plot) > 0:
                         plot_data = []
                         for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
+                            osph = row['Kategori Pokok Hutang']
                             for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
+                                if col not in ['Kategori Pokok Hutang', 'TOTAL'] and row[col] > 0:
                                     plot_data.append({
-                                        'Kategori Plafon': osph,
+                                        'Kategori Pokok Hutang': osph,
                                         'Status': col,
                                         'Jumlah': row[col]
                                     })
@@ -1523,10 +1523,10 @@ def main():
                             plot_df = pd.DataFrame(plot_data)
                             fig = px.bar(
                                 plot_df,
-                                x='Kategori Plafon',
+                                x='Kategori Pokok Hutang',
                                 y='Jumlah',
                                 color='Status',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
+                                title=f"Distribusi Pokok Hutang untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Pastel,
                                 text='Jumlah'
@@ -1546,7 +1546,7 @@ def main():
         
         # SUBTAB 3: BY JENIS KENDARAAN
         with subtab3:
-            st.markdown("### Analisis Plafon Berdasarkan Jenis Kendaraan")
+            st.markdown("### Analisis Pokok Hutang Berdasarkan Jenis Kendaraan")
             
             # Get top jenis kendaraan
             top_kendaraan = df_filtered.drop_duplicates('apps_id')['JenisKendaraan_clean'].value_counts().head(10).index.tolist()
@@ -1586,7 +1586,7 @@ def main():
                     for osph_range in osph_order:
                         df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
                         
-                        row = {'Kategori Plafon': osph_range}
+                        row = {'Kategori Pokok Hutang': osph_range}
                         
                         for kendaraan in top_kendaraan:
                             count = len(df_osph[df_osph['JenisKendaraan_clean'] == kendaraan])
@@ -1597,7 +1597,7 @@ def main():
                         pivot_data.append(row)
                     
                     # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
+                    total_row = {'Kategori Pokok Hutang': 'TOTAL SEMUA'}
                     for kendaraan in top_kendaraan:
                         count = len(df_segmen[df_segmen['JenisKendaraan_clean'] == kendaraan])
                         total_row[kendaraan] = count if count > 0 else 0
@@ -1609,16 +1609,16 @@ def main():
                     st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
                     
                     # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
+                    pivot_plot = pivot_df[pivot_df['Kategori Pokok Hutang'] != 'TOTAL SEMUA'].copy()
                     
                     if len(pivot_plot) > 0:
                         plot_data = []
                         for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
+                            osph = row['Kategori Pokok Hutang']
                             for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
+                                if col not in ['Kategori Pokok Hutang', 'TOTAL'] and row[col] > 0:
                                     plot_data.append({
-                                        'Kategori Plafon': osph,
+                                        'Kategori Pokok Hutang': osph,
                                         'Jenis Kendaraan': col,
                                         'Jumlah': row[col]
                                     })
@@ -1627,10 +1627,10 @@ def main():
                             plot_df = pd.DataFrame(plot_data)
                             fig = px.bar(
                                 plot_df,
-                                x='Kategori Plafon',
+                                x='Kategori Pokok Hutang',
                                 y='Jumlah',
                                 color='Jenis Kendaraan',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
+                                title=f"Distribusi Pokok Hutang untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Safe,
                                 text='Jumlah'
@@ -1663,7 +1663,7 @@ def main():
         
         # SUBTAB 4: BY HASIL SCORING (NEW)
         with subtab4:
-            st.markdown("### Analisis Plafon Berdasarkan Hasil Scoring")
+            st.markdown("### Analisis Pokok Hutang Berdasarkan Hasil Scoring")
             
             # Get top scoring results
             top_scoring = df_filtered.drop_duplicates('apps_id')['Scoring_Detail'].value_counts().head(10).index.tolist()
@@ -1703,7 +1703,7 @@ def main():
                     for osph_range in osph_order:
                         df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
                         
-                        row = {'Kategori Plafon': osph_range}
+                        row = {'Kategori Pokok Hutang': osph_range}
                         
                         for scoring in top_scoring:
                             count = len(df_osph[df_osph['Scoring_Detail'] == scoring])
@@ -1714,7 +1714,7 @@ def main():
                         pivot_data.append(row)
                     
                     # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
+                    total_row = {'Kategori Pokok Hutang': 'TOTAL SEMUA'}
                     for scoring in top_scoring:
                         count = len(df_segmen[df_segmen['Scoring_Detail'] == scoring])
                         total_row[scoring] = count if count > 0 else 0
@@ -1726,16 +1726,16 @@ def main():
                     st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
                     
                     # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
+                    pivot_plot = pivot_df[pivot_df['Kategori Pokok Hutang'] != 'TOTAL SEMUA'].copy()
                     
                     if len(pivot_plot) > 0:
                         plot_data = []
                         for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
+                            osph = row['Kategori Pokok Hutang']
                             for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
+                                if col not in ['Kategori Pokok Hutang', 'TOTAL'] and row[col] > 0:
                                     plot_data.append({
-                                        'Kategori Plafon': osph,
+                                        'Kategori Pokok Hutang': osph,
                                         'Hasil Scoring': col,
                                         'Jumlah': row[col]
                                     })
@@ -1744,10 +1744,10 @@ def main():
                             plot_df = pd.DataFrame(plot_data)
                             fig = px.bar(
                                 plot_df,
-                                x='Kategori Plafon',
+                                x='Kategori Pokok Hutang',
                                 y='Jumlah',
                                 color='Hasil Scoring',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
+                                title=f"Distribusi Pokok Hutang untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Vivid,
                                 text='Jumlah'
@@ -1794,7 +1794,7 @@ def main():
                 <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
                 <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang disetujui</li>
                 <li><strong>Waktu Proses Rata-rata</strong>: Durasi proses kredit dalam jam kerja</li>
-                <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
+                <li><strong>Total Pokok Hutang</strong>: Akumulasi nilai Pokok Hutang kredit</li>
             </ul>
             </div>
             """, unsafe_allow_html=True)
@@ -1828,7 +1828,7 @@ def main():
                         'Disetujui': approve,
                         'Tingkat Persetujuan': approval_pct,
                         'Waktu Proses Rata-rata': avg_sla,
-                        'Total Plafon': f"Rp {total_osph:,.0f}"
+                        'Total Pokok Hutang': f"Rp {total_osph:,.0f}"
                     })
                 
                 
@@ -2261,7 +2261,7 @@ def main():
             'SLA_Formatted': 'SLA',
             'SLA_Hours': 'SLA (Jam)',
             'Scoring_Detail': 'Hasil Penilaian',
-            'OSPH_Category': 'Kategori Plafon',
+            'OSPH_Category': 'Kategori Pokok Hutang',
             'Segmen_clean': 'Segmen',
             'JenisKendaraan_clean': 'Jenis Kendaraan',
             'Pekerjaan_clean': 'Pekerjaan',
