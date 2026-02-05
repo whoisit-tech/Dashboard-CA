@@ -1989,34 +1989,30 @@ def main():
         st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
     
         st.markdown("""
-    <div class="info-box">
-    <h4>Penjelasan Overdue Days (OD)</h4>
-    <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
-    <ul>
-        <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
-        <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
-    </ul>
-    <p><strong>Logic Pembersihan Data OD (Sesuai Rules):</strong></p>
-    <ul>
-        <li>Jika ada tanggal real (action_on_parsed) dan nilai OD adalah '-' → diubah menjadi <strong>0</strong> (tidak ada tunggakan)</li>
-        <li>Jika tidak ada tanggal real dan nilai OD adalah '-' → tetap <strong>NaN</strong> (data tidak valid)</li>
-        <li>Nilai numerik diproses normal</li>
-    </ul>
-    <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
-    <p><strong>Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
-    </div>
-    """, unsafe_allow_html=True)
+        <div class="info-box">
+        <h4>Penjelasan Overdue Days (OD)</h4>
+        <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
+        <ul>
+            <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
+            <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
+        </ul>
+        <p><strong>Logic Pembersihan Data OD (Sesuai Rules):</strong></p>
+        <ul>
+            <li>Jika ada tanggal real (action_on_parsed) dan nilai OD adalah '-' → diubah menjadi <strong>0</strong> (tidak ada tunggakan)</li>
+            <li>Jika tidak ada tanggal real dan nilai OD adalah '-' → tetap <strong>NaN</strong> (data tidak valid)</li>
+            <li>Nilai numerik diproses normal</li>
+        </ul>
+        <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
+        <p><strong>Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # FILTER: Hanya approved apps
-        df_approved = df_filtered[df_filtered['apps_status_clean'].isin([
-            'RECOMMENDED CA',
-            'RECOMMENDED CA WITH COND'
-        ])].sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
-        
+        df_distinct_sorted = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
+        total_apps_distinct = len(df_distinct_sorted)
+        total_records = len(df_filtered)
 
         col1, col2 = st.columns(2)
         with col1:
-            total_approved = len(df_approved)
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
@@ -2025,7 +2021,6 @@ def main():
             """, unsafe_allow_html=True)
         
         with col2:
-            total_approvedn = len(df_approved)
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
@@ -2039,27 +2034,27 @@ def main():
 
         with col1:
             st.markdown("### Keterlambatan Terakhir (Last OD)")
+            st.caption("*Mengikuti rules: '-' dengan tanggal real → 0, '-' tanpa tanggal → NaN*")
             
-            if 'LastOD_clean' in df_distinct.columns:
-                df_distinct_copy = df_distinct.copy()
+            if 'LastOD_clean' in df_distinct_sorted.columns:
+                df_copy = df_distinct_sorted.copy()
         
                 def categorize_lastod(value):
-                """Kategorisasi Last OD sesuai dengan clean logic"""
-                if pd.isna(value):
-                    return 'Data Kosong / Tidak Valid'      # ✅ Jelas bahwa ini adalah NaN/tidak valid
-                elif value == 0:
-                    return 'Tidak Ada Tunggakan (0 hari)'   # ✅ Jelas bahwa ini adalah 0 hari (bukan data kosong)
-                elif value <= 10:
-                    return '1-10 Hari'
-                elif value <= 30:
-                    return '11-30 Hari'
-                else:
-                    return 'Lebih dari 30 Hari''
+                    """Kategorisasi Last OD sesuai dengan clean logic"""
+                    if pd.isna(value):
+                        return 'Data Kosong / Tidak Valid'
+                    elif value == 0:
+                        return 'Tidak Ada Tunggakan (0 hari)'
+                    elif value <= 10:
+                        return '1-10 Hari'
+                    elif value <= 30:
+                        return '11-30 Hari'
+                    else:
+                        return 'Lebih dari 30 Hari'
 
-                df_distinct_copy['LastOD_Category'] = df_distinct_copy['LastOD_clean'].apply(categorize_lastod)
+                df_copy['LastOD_Category'] = df_copy['LastOD_clean'].apply(categorize_lastod)
         
                 lastod_analysis = []
-
                 category_order = [
                     'Data Kosong / Tidak Valid',
                     'Tidak Ada Tunggakan (0 hari)',
@@ -2067,10 +2062,9 @@ def main():
                     '11-30 Hari',
                     'Lebih dari 30 Hari'
                 ]
-                
+
                 for cat in category_order:
-                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
-                    if len(df_od) > 0:
+                    df_od = df_copy[df_copy['LastOD_Category'] == cat]
             
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
@@ -2079,70 +2073,74 @@ def main():
                         approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                 
                         lastod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
+                            'Kategori Last OD': cat,
+                            'Total Aplikasi': total,
                             'Disetujui': approve,
                             'Tingkat Persetujuan': approval_pct
                         })
         
-                lastod_df = pd.DataFrame(lastod_analysis)
-                st.dataframe(lastod_df, use_container_width=True, hide_index=True)
+                if len(lastod_analysis) > 0:
+                    lastod_df = pd.DataFrame(lastod_analysis)
+                    st.dataframe(lastod_df, use_container_width=True, hide_index=True)
         
-                if len(lastod_df) > 0:
                     lastod_df['Approval_Numeric'] = lastod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
                     fig = px.bar(
                         lastod_df,
-                        x='Kategori',
+                        x='Kategori Last OD',
                         y='Approval_Numeric',
                         title="Tingkat Persetujuan Berdasarkan Last OD",
                         color='Approval_Numeric',
                         color_continuous_scale='RdYlGn',
-                        text='Tingkat Persetujuan'
+                        text='Tingkat Persetujuan',
+                        range_color=[0, 100]
                     )
-                    fig.update_traces(textposition='outside', textfont_size=12)
+                    fig.update_traces(textposition='outside', textfont_size=11)
                     fig.update_layout(
                         yaxis_title="Tingkat Persetujuan (%)",
+                        xaxis_title="Kategori Last OD",
                         height=400,
                         showlegend=False,
                         plot_bgcolor='#ffffff',
                         paper_bgcolor='#ffffff',
-                        xaxis={'tickangle': -45}  # Rotasi label agar tidak bertumpuk
+                        font=dict(family='Arial', size=11, color='#1e2129'),
+                        xaxis={'tickangle': -45},
+                        yaxis={'range': [0, 105]}
                     )
                     st.plotly_chart(fig, use_container_width=True)
         
         with col2:
             st.markdown("### Keterlambatan Maksimum (Max OD)")
-    
-            if 'max_OD_clean' in df_distinct.columns:
-                df_distinct_copy2 = df_distinct.copy()
+            st.caption("*Mengikuti rules: '-' dengan tanggal real → 0, '-' tanpa tanggal → NaN*")
+
+            if 'max_OD_clean' in df_distinct_sorted.columns:
+                df_copy2 = df_distinct_sorted.copy()
         
                 def categorize_maxod(value):
-                """Kategorisasi Max OD sesuai dengan clean logic"""
-                if pd.isna(value):
-                    return 'Data Kosong / Tidak Valid'      # ✅ Jelas bahwa ini adalah NaN/tidak valid
-                elif value == 0:
-                    return 'Tidak Ada Tunggakan (0 hari)'   # ✅ Jelas bahwa ini adalah 0 hari (bukan data kosong)
-                elif value <= 10:
-                    return '1-10 Hari'
-                elif value <= 30:
-                    return '11-30 Hari'
-                else:
-                    return 'Lebih dari 30 Hari''
+                    """Kategorisasi Max OD sesuai dengan clean logic"""
+                    if pd.isna(value):
+                        return 'Data Kosong / Tidak Valid'
+                    elif value == 0:
+                        return 'Tidak Ada Tunggakan (0 hari)'
+                    elif value <= 15:
+                        return '1-15 Hari'
+                    elif value <= 45:
+                        return '16-45 Hari'
+                    else:
+                        return 'Lebih dari 45 Hari'
 
-                df_distinct_copy2['max_OD_Category'] = df_distinct_copy2['max_OD_clean'].apply(categorize_maxod)
+                df_copy2['max_OD_Category'] = df_copy2['max_OD_clean'].apply(categorize_maxod)
         
                 maxod_analysis = []
-
                 category_order = [
                     'Data Kosong / Tidak Valid',
                     'Tidak Ada Tunggakan (0 hari)',
-                    '1-10 Hari',
-                    '11-30 Hari',
-                    'Lebih dari 30 Hari'
+                    '1-15 Hari',
+                    '16-45 Hari',
+                    'Lebih dari 45 Hari'
                 ]
-                
+
                 for cat in category_order:
-                    df_od = df_distinct_copy[df_distinct_copy['Max_OD_Category'] == cat]
+                    df_od = df_copy2[df_copy2['max_OD_Category'] == cat]
             
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
@@ -2151,34 +2149,38 @@ def main():
                         approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                 
                         maxod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
+                            'Kategori Max OD': cat,
+                            'Total Aplikasi': total,
                             'Disetujui': approve,
                             'Tingkat Persetujuan': approval_pct
                         })
         
-                maxod_df = pd.DataFrame(maxod_analysis)
-                st.dataframe(maxod_df, use_container_width=True, hide_index=True)
+                if len(maxod_analysis) > 0:
+                    maxod_df = pd.DataFrame(maxod_analysis)
+                    st.dataframe(maxod_df, use_container_width=True, hide_index=True)
         
-                if len(maxod_df) > 0:
                     maxod_df['Approval_Numeric'] = maxod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
                     fig = px.bar(
                         maxod_df,
-                        x='Kategori',
+                        x='Kategori Max OD',
                         y='Approval_Numeric',
                         title="Tingkat Persetujuan Berdasarkan Max OD",
                         color='Approval_Numeric',
                         color_continuous_scale='RdYlGn',
-                        text='Tingkat Persetujuan'
+                        text='Tingkat Persetujuan',
+                        range_color=[0, 100]
                     )
-                    fig.update_traces(textposition='outside', textfont_size=12)
+                    fig.update_traces(textposition='outside', textfont_size=11)
                     fig.update_layout(
                         yaxis_title="Tingkat Persetujuan (%)",
+                        xaxis_title="Kategori Max OD",
                         height=400,
                         showlegend=False,
                         plot_bgcolor='#ffffff',
                         paper_bgcolor='#ffffff',
-                        xaxis={'tickangle': -45}  # Rotasi label agar tidak bertumpuk
+                        font=dict(family='Arial', size=11, color='#1e2129'),
+                        xaxis={'tickangle': -45},
+                        yaxis={'range': [0, 105]}
                     )
                     st.plotly_chart(fig, use_container_width=True)
     
