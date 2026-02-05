@@ -1967,11 +1967,11 @@ def main():
                 )
                 fig.update_xaxes(side="bottom")
                 st.plotly_chart(fig, use_container_width=True)
-    
+
     # ====== TAB 6: OD IMPACT ======
     with tab6:
         st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
-        
+    
         st.markdown("""
         <div class="info-box">
         <h4>Penjelasan Overdue Days (OD)</h4>
@@ -1981,13 +1981,14 @@ def main():
             <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
         </ul>
         <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
+        <p><strong> Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
         </div>
         """, unsafe_allow_html=True)
         
-        df_distinct = df_filtered.drop_duplicates('apps_id')
+        df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"""
