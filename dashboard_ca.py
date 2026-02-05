@@ -1989,17 +1989,23 @@ def main():
         st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
     
         st.markdown("""
-        <div class="info-box">
-        <h4>Penjelasan Overdue Days (OD)</h4>6
-        <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
-        <ul>
-            <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
-            <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
-        </ul>
-        <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
-        <p><strong> Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
-        </div>
-        """, unsafe_allow_html=True)
+    <div class="info-box">
+    <h4>Penjelasan Overdue Days (OD)</h4>
+    <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
+    <ul>
+        <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
+        <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
+    </ul>
+    <p><strong>Logic Pembersihan Data OD (Sesuai Rules):</strong></p>
+    <ul>
+        <li>Jika ada tanggal real (action_on_parsed) dan nilai OD adalah '-' → diubah menjadi <strong>0</strong> (tidak ada tunggakan)</li>
+        <li>Jika tidak ada tanggal real dan nilai OD adalah '-' → tetap <strong>NaN</strong> (data tidak valid)</li>
+        <li>Nilai numerik diproses normal</li>
+    </ul>
+    <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
+    <p><strong>Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
         
         # FILTER: Hanya approved apps
         df_approved = df_filtered[df_filtered['apps_status_clean'].isin([
@@ -2038,23 +2044,33 @@ def main():
                 df_distinct_copy = df_distinct.copy()
         
                 def categorize_lastod(value):
-                    if pd.isna(value):
-                        return 'Data Kosong (-)'  # Untuk nilai '-' atau NULL
-                    elif value == 0:
-                        return 'Tidak Ada Tunggakan (0)'  # Untuk nilai 0
-                    elif value <= 10:
-                        return '1-10 Hari'
-                    elif value <= 30:
-                        return '11-30 Hari'
-                    else:
-                        return 'Lebih dari 30 Hari'
+                """Kategorisasi Last OD sesuai dengan clean logic"""
+                if pd.isna(value):
+                    return 'Data Kosong / Tidak Valid'      # ✅ Jelas bahwa ini adalah NaN/tidak valid
+                elif value == 0:
+                    return 'Tidak Ada Tunggakan (0 hari)'   # ✅ Jelas bahwa ini adalah 0 hari (bukan data kosong)
+                elif value <= 10:
+                    return '1-10 Hari'
+                elif value <= 30:
+                    return '11-30 Hari'
+                else:
+                    return 'Lebih dari 30 Hari''
 
                 df_distinct_copy['LastOD_Category'] = df_distinct_copy['LastOD_clean'].apply(categorize_lastod)
         
                 lastod_analysis = []
 
-                for cat in ['Data Kosong (-)', 'Tidak Ada Tunggakan (0)', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']:
+                category_order = [
+                    'Data Kosong / Tidak Valid',
+                    'Tidak Ada Tunggakan (0 hari)',
+                    '1-10 Hari',
+                    '11-30 Hari',
+                    'Lebih dari 30 Hari'
+                ]
+                
+                for cat in category_order:
                     df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
+                    if len(df_od) > 0:
             
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
@@ -2101,23 +2117,32 @@ def main():
                 df_distinct_copy2 = df_distinct.copy()
         
                 def categorize_maxod(value):
-                    if pd.isna(value):
-                          return 'Data Kosong (-)'  # Untuk nilai '-' atau NULL
-                    elif value == 0:
-                        return 'Tidak Ada Tunggakan (0)'  # Untuk nilai 0
-                    elif value <= 15:
-                        return '1-15 Hari'
-                    elif value <= 45:
-                        return '16-45 Hari'
-                    else:
-                        return 'Lebih dari 45 Hari'
+                """Kategorisasi Max OD sesuai dengan clean logic"""
+                if pd.isna(value):
+                    return 'Data Kosong / Tidak Valid'      # ✅ Jelas bahwa ini adalah NaN/tidak valid
+                elif value == 0:
+                    return 'Tidak Ada Tunggakan (0 hari)'   # ✅ Jelas bahwa ini adalah 0 hari (bukan data kosong)
+                elif value <= 10:
+                    return '1-10 Hari'
+                elif value <= 30:
+                    return '11-30 Hari'
+                else:
+                    return 'Lebih dari 30 Hari''
 
                 df_distinct_copy2['max_OD_Category'] = df_distinct_copy2['max_OD_clean'].apply(categorize_maxod)
         
                 maxod_analysis = []
 
-                for cat in ['Data Kosong (-)', 'Tidak Ada Tunggakan (0)', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']:
-                    df_od = df_distinct_copy2[df_distinct_copy2['max_OD_Category'] == cat]
+                category_order = [
+                    'Data Kosong / Tidak Valid',
+                    'Tidak Ada Tunggakan (0 hari)',
+                    '1-10 Hari',
+                    '11-30 Hari',
+                    'Lebih dari 30 Hari'
+                ]
+                
+                for cat in category_order:
+                    df_od = df_distinct_copy[df_distinct_copy['Max_OD_Category'] == cat]
             
                     if len(df_od) > 0:
                         approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
