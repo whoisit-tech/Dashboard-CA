@@ -2006,6 +2006,12 @@ def main():
         <p><strong>Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
         </div>
         """, unsafe_allow_html=True)
+
+        # FILTER: Hanya approved apps
+        df_approved = df_filtered[df_filtered['apps_status_clean'].isin([
+            'RECOMMENDED CA',
+            'RECOMMENDED CA WITH COND'
+        ])].sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
         
         df_distinct_sorted = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct_sorted)
