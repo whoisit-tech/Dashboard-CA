@@ -533,7 +533,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
     monthly_apps = monthly_apps.rename(columns={'YearMonth': 'Bulan'})
     
-    df_approved = df_filtered_copy.drop_duplicates('apps_id')
+    df_approved = df_filtered_copy.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
     
     if 'apps_status_clean' not in df_approved.columns:
         st.error("Kolom 'apps_status_clean' tidak ditemukan")
@@ -1922,7 +1922,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        df_distinct = df_filtered.drop_duplicates('apps_id')
+        df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
         
