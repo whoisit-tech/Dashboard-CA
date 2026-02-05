@@ -1992,8 +1992,6 @@ def main():
         <h4>Penjelasan Analisis</h4>
         <p>Tab ini fokus pada analisis <strong>Overdue Days (OD)</strong> untuk aplikasi yang <strong>DISETUJUI</strong>:</p>
         <ul>
-            <li><strong>RECOMMENDED CA</strong>: Aplikasi yang disetujui tanpa kondisi khusus</li>
-            <li><strong>RECOMMENDED CA WITH COND</strong>: Aplikasi disetujui dengan kondisi tertentu</li>
         </ul>
         <p><strong> Total Apps Analyzed:</strong>
         <p><strong> Metrics:</strong> Last OD (tunggakan terakhir) dan Max OD (tunggakan tertinggi pernah terjadi)</p>
