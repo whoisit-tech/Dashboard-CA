@@ -1799,56 +1799,87 @@ def main():
         subtab1, subtab2 = st.tabs([" Kinerja Cabang", " Kinerja Credit Analyst"])
         
         # Branch Performance
-        with subtab1:
-            st.markdown("""
-            <div class="info-box">
-            <h4>Penjelasan Metrik Kinerja Cabang</h4>
-            <ul>
-                <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
-                <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang disetujui</li>
-                <li><strong>Waktu Proses Rata-rata</strong>: Durasi proses kredit dalam jam kerja</li>
-                <li><strong>Total Pokok Hutang</strong>: Akumulasi nilai Pokok Hutang kredit</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if 'branch_name_clean' in df_filtered.columns:
-                branch_perf = []
+        # Branch Performance
+with subtab1:
+    st.markdown("""
+    <div class="info-box">
+    <h4>Penjelasan Metrik Kinerja Cabang</h4>
+    <ul>
+        <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
+        <li><strong>Waktu Proses PENDING CA → PENDING CA COMPLETED</strong>: Durasi proses dari PENDING CA hingga PENDING CA COMPLETED dalam jam kerja</li>
+        <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if 'branch_name_clean' in df_filtered.columns:
+        branch_perf = []
 
-                for branch in sorted(df_filtered['branch_name_clean'].unique()):
-                    if branch == 'Tidak Diketahui':
-                        continue
-                    
-                    df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
-                    df_branch_distinct = df_branch.drop_duplicates('apps_id')
-                    
-                    total_apps = len(df_branch_distinct)
-                    total_records = len(df_branch)
-                    
-                    approve = df_branch_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-                    total_scored = len(df_branch_distinct)
-                    approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
-                    
-                    branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
-                    avg_sla = convert_hours_to_hm(branch_sla['SLA_Hours'].mean()) if len(branch_sla) > 0 else "-"
-                    
-                    total_osph = df_branch_distinct['OSPH_clean'].sum()
-                    
-                    branch_perf.append({
-                        'Cabang': branch,
-                        'Total AppID': total_apps,
-                        'Total Catatan': total_records,
-                        'Disetujui': approve,
-                        'Tingkat Persetujuan': approval_pct,
-                        'Waktu Proses Rata-rata': avg_sla,
-                        'Total Pokok Hutang': f"Rp {total_osph:,.0f}"
-                    })
+        for branch in sorted(df_filtered['branch_name_clean'].unique()):
+            if branch == 'Tidak Diketahui':
+                continue
+            
+            df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
+            df_branch_distinct = df_branch.drop_duplicates('apps_id')
+            
+            total_apps = len(df_branch_distinct)
+            total_records = len(df_branch)
+            
+            # HITUNG SLA KHUSUS: PENDING CA → PENDING CA COMPLETED
+            # Filter hanya apps_id yang memiliki kedua status
+            apps_with_both_status = []
+            
+            for apps_id in df_branch['apps_id'].unique():
+                df_app = df_branch[df_branch['apps_id'] == apps_id].sort_values('action_on_parsed')
                 
+                # Cek apakah ada PENDING CA dan PENDING CA COMPLETED
+                has_pending_ca = (df_app['apps_status_clean'] == 'PENDING CA').any()
+                has_completed = (df_app['apps_status_clean'] == 'PENDING CA COMPLETED').any()
                 
-                branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
-                
-                st.markdown("### Tabel Kinerja Seluruh Cabang")
-                st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
+                if has_pending_ca and has_completed:
+                    # Ambil waktu PENDING CA (pertama kali muncul)
+                    pending_ca_time = df_app[df_app['apps_status_clean'] == 'PENDING CA']['action_on_parsed'].iloc[0]
+                    
+                    # Ambil waktu PENDING CA COMPLETED (pertama kali muncul setelah PENDING CA)
+                    completed_rows = df_app[
+                        (df_app['apps_status_clean'] == 'PENDING CA COMPLETED') & 
+                        (df_app['action_on_parsed'] > pending_ca_time)
+                    ]
+                    
+                    if len(completed_rows) > 0:
+                        completed_time = completed_rows['action_on_parsed'].iloc[0]
+                        
+                        # Hitung SLA
+                        sla_result = calculate_sla_working_hours(pending_ca_time, completed_time)
+                        
+                        if sla_result:
+                            apps_with_both_status.append(sla_result['total_hours'])
+            
+            # Rata-rata SLA PENDING CA → PENDING CA COMPLETED
+            if len(apps_with_both_status) > 0:
+                avg_sla_hours = np.mean(apps_with_both_status)
+                avg_sla = convert_hours_to_hm(avg_sla_hours)
+                sla_count = len(apps_with_both_status)
+            else:
+                avg_sla = "-"
+                sla_count = 0
+            
+            total_osph = df_branch_distinct['OSPH_clean'].sum()
+            
+            branch_perf.append({
+                'Cabang': branch,
+                'Total AppID': total_apps,
+                'Total Catatan': total_records,
+                'Jumlah SLA Dihitung': sla_count,
+                'Waktu Proses (PENDING CA → COMPLETED)': avg_sla,
+                'Total Plafon': f"Rp {total_osph:,.0f}"
+            })
+        
+        
+        branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
+        
+        st.markdown("### Tabel Kinerja Seluruh Cabang")
+        st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
                 
         
         # CA Performance
@@ -1982,87 +2013,211 @@ def main():
                 st.plotly_chart(fig, use_container_width=True)
 
     # ====== TAB 6: OD IMPACT ======
-    with tab6:
-        st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
+    # ====== TAB 6: OD IMPACT ======
+with tab6:
+    st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
     
-        st.markdown("""
-        <div class="info-box">
-        <h4>Penjelasan Overdue Days (OD)</h4>
-        <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
-        <ul>
-            <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
-            <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
-        </ul>
-        <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
-        <p><strong> Data OD diambil dari histori TERAKHIR (terbaru) setiap AppID</strong></p>
+    st.markdown("""
+    <div class="info-box">
+    <h4>Penjelasan Overdue Days (OD)</h4>
+    <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
+    <ul>
+        <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
+        <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
+    </ul>
+    <p><strong>📌 Catatan:</strong> Nilai '-' dengan tanggal real dihitung sebagai 0 (tidak ada tunggakan)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # AMBIL DATA TERAKHIR UNTUK SETIAP APPS_ID
+    df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
+    total_apps_distinct = len(df_distinct)
+    total_records = len(df_filtered)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"""
+        <div class="metric-box-success" style="text-align: center; padding: 25px;">
+        <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
+        <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
         </div>
         """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-box" style="text-align: center; padding: 25px;">
+        <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
+        <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ========== BREAKDOWN BY STATUS ==========
+    st.markdown("### 📊 Breakdown OD Berdasarkan Status")
+    
+    # STATUS: RECOMMENDED CA
+    st.markdown("#### 1️⃣ RECOMMENDED CA")
+    df_rec_ca = df_distinct[df_distinct['apps_status_clean'] == 'RECOMMENDED CA']
+    
+    if len(df_rec_ca) > 0:
+        col1, col2, col3 = st.columns(3)
         
-        df_distinct = df_filtered.sort_values('action_on_parsed', ascending=False).drop_duplicates('apps_id')
-        total_apps_distinct = len(df_distinct)
-        total_records = len(df_filtered)
-
-        col1, col2 = st.columns(2)
         with col1:
+            total_apps = len(df_rec_ca)
             st.markdown(f"""
-            <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
-            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
+            <div class="metric-box-success" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h4>
+            <h3 style="color: #1e88e5; margin: 0;">{total_apps:,}</h3>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
+            avg_lastod = df_rec_ca['LastOD_clean'].mean()
             st.markdown(f"""
-            <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
+            <div class="metric-box" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Last OD</h4>
+            <h3 style="color: #0066b3; margin: 0;">{avg_lastod:.1f} hari</h3>
             </div>
             """, unsafe_allow_html=True)
         
-        st.markdown("---")
+        with col3:
+            avg_maxod = df_rec_ca['max_OD_clean'].mean()
+            st.markdown(f"""
+            <div class="metric-box" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Max OD</h4>
+            <h3 style="color: #0066b3; margin: 0;">{avg_maxod:.1f} hari</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # TOP 10 APPS WITH HIGHEST OD
+        st.markdown("**🔝 Top 10 AppID dengan OD Tertinggi (RECOMMENDED CA)**")
         
         col1, col2 = st.columns(2)
-
+        
         with col1:
-            st.markdown("### Keterlambatan Terakhir (Last OD)")
-            
-            if 'LastOD_clean' in df_distinct.columns:
-                df_distinct_copy = df_distinct.copy()
+            st.markdown("*Last OD Tertinggi*")
+            top_lastod = df_rec_ca.nlargest(10, 'LastOD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean']]
+            top_lastod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)']
+            st.dataframe(top_lastod.reset_index(drop=True), use_container_width=True, height=300)
         
-                def categorize_lastod(value):
-                    if pd.isna(value):
-                        return 'Data Kosong (-)'  # Untuk nilai '-' atau NULL
-                    elif value == 0:
-                        return 'Tidak Ada Tunggakan (0)'  # Untuk nilai 0
-                    elif value <= 10:
-                        return '1-10 Hari'
-                    elif value <= 30:
-                        return '11-30 Hari'
-                    else:
-                        return 'Lebih dari 30 Hari'
-
-                df_distinct_copy['LastOD_Category'] = df_distinct_copy['LastOD_clean'].apply(categorize_lastod)
+        with col2:
+            st.markdown("*Max OD Tertinggi*")
+            top_maxod = df_rec_ca.nlargest(10, 'max_OD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean']]
+            top_maxod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)']
+            st.dataframe(top_maxod.reset_index(drop=True), use_container_width=True, height=300)
+    else:
+        st.info("Tidak ada data untuk status RECOMMENDED CA")
+    
+    st.markdown("---")
+    
+    # STATUS: RECOMMENDED CA WITH COND
+    st.markdown("#### 2️⃣ RECOMMENDED CA WITH COND")
+    df_rec_ca_cond = df_distinct[df_distinct['apps_status_clean'] == 'RECOMMENDED CA WITH COND']
+    
+    if len(df_rec_ca_cond) > 0:
+        col1, col2, col3 = st.columns(3)
         
-                lastod_analysis = []
-
-                for cat in ['Data Kosong (-)', 'Tidak Ada Tunggakan (0)', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']:
-                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
-            
-                    if len(df_od) > 0:
-                        approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
-                        total = len(df_od)
-                        
-                        approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
-                
-                        lastod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
-                            'Disetujui': approve,
-                            'Tingkat Persetujuan': approval_pct
-                        })
+        with col1:
+            total_apps = len(df_rec_ca_cond)
+            st.markdown(f"""
+            <div class="metric-box-success" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h4>
+            <h3 style="color: #1e88e5; margin: 0;">{total_apps:,}</h3>
+            </div>
+            """, unsafe_allow_html=True)
         
-                lastod_df = pd.DataFrame(lastod_analysis)
-                st.dataframe(lastod_df, use_container_width=True, hide_index=True)
+        with col2:
+            avg_lastod = df_rec_ca_cond['LastOD_clean'].mean()
+            st.markdown(f"""
+            <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Last OD</h4>
+            <h3 style="color: #ff9800; margin: 0;">{avg_lastod:.1f} hari</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            avg_maxod = df_rec_ca_cond['max_OD_clean'].mean()
+            st.markdown(f"""
+            <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Max OD</h4>
+            <h3 style="color: #ff9800; margin: 0;">{avg_maxod:.1f} hari</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # TOP 10 APPS WITH HIGHEST OD
+        st.markdown("**🔝 Top 10 AppID dengan OD Tertinggi (RECOMMENDED CA WITH COND)**")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("*Last OD Tertinggi*")
+            top_lastod = df_rec_ca_cond.nlargest(10, 'LastOD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean']]
+            top_lastod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)']
+            st.dataframe(top_lastod.reset_index(drop=True), use_container_width=True, height=300)
+        
+        with col2:
+            st.markdown("*Max OD Tertinggi*")
+            top_maxod = df_rec_ca_cond.nlargest(10, 'max_OD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean']]
+            top_maxod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)']
+            st.dataframe(top_maxod.reset_index(drop=True), use_container_width=True, height=300)
+    else:
+        st.info("Tidak ada data untuk status RECOMMENDED CA WITH COND")
+    
+    st.markdown("---")
+    
+    # STATUS: PENDING CA COMPLETED
+    st.markdown("#### 3️⃣ PENDING CA COMPLETED")
+    df_pending_completed = df_distinct[df_distinct['apps_status_clean'] == 'PENDING CA COMPLETED']
+    
+    if len(df_pending_completed) > 0:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            total_apps = len(df_pending_completed)
+            st.markdown(f"""
+            <div class="metric-box" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h4>
+            <h3 style="color: #0066b3; margin: 0;">{total_apps:,}</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            avg_lastod = df_pending_completed['LastOD_clean'].mean()
+            st.markdown(f"""
+            <div class="metric-box" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Last OD</h4>
+            <h3 style="color: #0066b3; margin: 0;">{avg_lastod:.1f} hari</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            avg_maxod = df_pending_completed['max_OD_clean'].mean()
+            st.markdown(f"""
+            <div class="metric-box" style="text-align: center; padding: 20px;">
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Rata-rata Max OD</h4>
+            <h3 style="color: #0066b3; margin: 0;">{avg_maxod:.1f} hari</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # TOP 10 APPS WITH HIGHEST OD
+        st.markdown("**🔝 Top 10 AppID dengan OD Tertinggi (PENDING CA COMPLETED)**")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("*Last OD Tertinggi*")
+            top_lastod = df_pending_completed.nlargest(10, 'LastOD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean']]
+            top_lastod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)']
+            st.dataframe(top_lastod.reset_index(drop=True), use_container_width=True, height=300)
+        
+        with col2:
+            st.markdown("*Max OD Tertinggi*")
+            top_maxod = df_pending_completed.nlargest(10, 'max_OD_clean')[['apps_id', 'LastOD_clean', 'max_OD_clean']]
+            top_maxod.columns = ['AppID', 'Last OD (Hari)', 'Max OD (Hari)']
+            st.dataframe(top_maxod.reset_index(drop=True), use_container_width=True, height=300)
+    else:
+        st.info("Tidak ada data untuk status PENDING CA COMPLETED")
         
                 if len(lastod_df) > 0:
                     lastod_df['Approval_Numeric'] = lastod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
