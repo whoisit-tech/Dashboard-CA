@@ -444,7 +444,7 @@ def convert_hours_to_hm(total_hours):
     return f"{hours} jam {minutes} menit"
 
 def calculate_sla_working_hours(start_dt, end_dt):
-    """Calculate SLA in working hours (08:30-15:30)"""
+    """Calculate SLA in working hours (08:30-17:30)"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -1054,7 +1054,7 @@ def main():
         <p><strong>SLA (Service Level Agreement)</strong> adalah target waktu yang ditetapkan untuk menyelesaikan proses kredit.</p>
         <ul>
             <li><strong>Perhitungan</strong>: Historical berdasarkan waktu recommendation hingga action</li>
-            <li><strong>Jam Kerja</strong>: 08:30 - 15:30 (tidak termasuk weekend & libur nasional)</li>
+            <li><strong>Jam Kerja</strong>: 08:30 - 17:30 (tidak termasuk weekend & libur nasional)</li>
         </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -1063,7 +1063,7 @@ def main():
         sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
         
         st.markdown("### Statistik Waktu Proses ")
-        st.caption("*Perhitungan berdasarkan jam kerja 08:30 - 15:30, exclude weekend dan hari libur*")
+        st.caption("*Perhitungan berdasarkan jam kerja 08:30 - 17:30, exclude weekend dan hari libur*")
         
         col1, col2, col3, col4 = st.columns(4)
         
