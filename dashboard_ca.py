@@ -13,7 +13,7 @@ st.set_page_config(
     page_icon="🏦"
 )
 
-FILE_NAME = "Historal CA 2025-Jan2026.xlsx"
+FILE_NAME = "Update Historical CA.xlsx"
 
 # BCA Finance Brand Colors
 BCA_BLUE = "#003d7a"
@@ -516,7 +516,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         return
     
     sla_trend = sla_valid.copy()
-    sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
+    sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_peri('M').astype(str)
     
     monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
     monthly_avg.columns = ['Bulan', 'Rata-rata Waktu (Jam)', 'Jumlah Data']
@@ -721,23 +721,6 @@ def preprocess_data(df):
         )
         df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
     
-    # Clean OD - UBAH LOGIC: '-' YANG ADA TGL REAL JADI 0
-    for col in ['LastOD', 'max_OD']:
-        if col in df.columns:
-            # Cek apakah value adalah '-' atau string non-numeric
-            def clean_od_value(row):
-                od_value = row[col]
-                # Jika ada tanggal real dan nilai OD adalah '-', ubah jadi 0
-                if pd.notna(row.get('action_on_parsed')) and (od_value == '-' or pd.isna(od_value) or str(od_value).strip() == ''):
-                    return 0
-                # Jika tidak ada tanggal real dan nilai '-', tetap NaN
-                elif pd.isna(row.get('action_on_parsed')) and (od_value == '-' or str(od_value).strip() == ''):
-                    return np.nan
-                # Convert numeric
-                else:
-                    return pd.to_numeric(od_value, errors='coerce')
-            
-            df[f'{col}_clean'] = df.apply(clean_od_value, axis=1)
     
     # Clean Scoring
     if 'Hasil_Scoring' in df.columns:
@@ -886,7 +869,7 @@ def load_data():
             'Segmen', 'action_on', 'Outstanding_PH',
             'Pekerjaan', 'Jabatan', 'Hasil_Scoring',
             'JenisKendaraan', 'branch_name', 'Tujuan_Kredit',
-            'Recommendation', 'LastOD', 'max_OD'
+            'Recommendation'
         ]
         
         missing = [c for c in required_cols if c not in df.columns]
