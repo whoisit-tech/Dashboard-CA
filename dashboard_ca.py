@@ -516,7 +516,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         return
     
     sla_trend = sla_valid.copy()
-    sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_peri('M').astype(str)
+    sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
     
     monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
     monthly_avg.columns = ['Bulan', 'Rata-rata Waktu (Jam)', 'Jumlah Data']
