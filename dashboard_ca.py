@@ -458,7 +458,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
             return None
         
         WORK_START = timedelta(hours=8, minutes=30)
-        WORK_END = timedelta(hours=15, minutes=30)
+        WORK_END = timedelta(hours=17, minutes=30)
         
         current = start_dt
         total_seconds = 0
